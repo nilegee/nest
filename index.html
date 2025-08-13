@@ -5,9 +5,188 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FamilyNest</title>
   
-  <!-- CDN Dependencies -->
+  <!-- CDN Dependencies with fallback -->
   <script type="module" src="https://esm.sh/lit@3"></script>
   <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+  
+  <!-- CDN Error Handling -->
+  <script>
+    let cdnCheckTimeout;
+    
+    function showCDNErrorMessage() {
+      // Hide initial loading indicator
+      const loadingIndicator = document.getElementById('initial-loading');
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+      }
+      
+      const fnApp = document.querySelector('fn-app');
+      if (fnApp && !fnApp.shadowRoot && !customElements.get('fn-app')) {
+        fnApp.innerHTML = `
+          <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fafafa;
+            color: #1f2937;
+          ">
+            <div style="
+              background: white;
+              padding: 32px;
+              border-radius: 12px;
+              box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+              max-width: 400px;
+              width: 100%;
+            ">
+              <h1 style="
+                margin: 0 0 16px 0;
+                color: #ef4444;
+                font-size: 1.5rem;
+                font-weight: 600;
+              ">Unable to Load FamilyNest</h1>
+              
+              <p style="margin: 0 0 20px 0; line-height: 1.6;">
+                Essential resources couldn't be loaded. This might be due to:
+              </p>
+              
+              <ul style="
+                text-align: left;
+                margin: 0 0 24px 0;
+                padding-left: 20px;
+                line-height: 1.6;
+              ">
+                <li>Ad blockers or browser extensions</li>
+                <li>Network connectivity issues</li>
+                <li>Corporate firewall restrictions</li>
+              </ul>
+              
+              <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                <button onclick="window.location.reload()" style="
+                  background: #6366f1;
+                  color: white;
+                  border: none;
+                  padding: 10px 20px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: 500;
+                ">Try Again</button>
+                
+                <button onclick="alert('Please disable ad blocker for this site and refresh the page.')" style="
+                  background: #f3f4f6;
+                  color: #374151;
+                  border: 1px solid #d1d5db;
+                  padding: 10px 20px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: 500;
+                ">Check Ad Blocker</button>
+              </div>
+              
+              <details style="margin-top: 24px;">
+                <summary style="cursor: pointer; color: #6b7280;">Technical Details</summary>
+                <p style="
+                  margin: 12px 0 0 0;
+                  font-size: 0.875rem;
+                  color: #6b7280;
+                  font-family: monospace;
+                  background: #f9fafb;
+                  padding: 12px;
+                  border-radius: 4px;
+                ">CDN resources failed to load. Please check network connectivity.</p>
+              </details>
+            </div>
+          </div>
+        `;
+      }
+    }
+    
+    // Check if dependencies loaded successfully after a delay
+    cdnCheckTimeout = setTimeout(() => {
+      const fnApp = document.querySelector('fn-app');
+      
+      // Check if Lit loaded but app component didn't register
+      if (typeof LitElement !== 'undefined' && !customElements.get('fn-app')) {
+        console.error('Lit loaded but fn-app component failed to register');
+        
+        // Hide initial loading indicator
+        const loadingIndicator = document.getElementById('initial-loading');
+        if (loadingIndicator) {
+          loadingIndicator.style.display = 'none';
+        }
+        
+        if (fnApp && !fnApp.shadowRoot) {
+          fnApp.innerHTML = `
+            <div style="
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              padding: 20px;
+              text-align: center;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              background: #fafafa;
+              color: #1f2937;
+            ">
+              <div style="
+                background: white;
+                padding: 32px;
+                border-radius: 12px;
+                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+                max-width: 400px;
+                width: 100%;
+              ">
+                <h1 style="
+                  margin: 0 0 16px 0;
+                  color: #f59e0b;
+                  font-size: 1.5rem;
+                  font-weight: 600;
+                ">App Initialization Error</h1>
+                
+                <p style="margin: 0 0 20px 0; line-height: 1.6;">
+                  The application components failed to load properly. This is likely a temporary issue.
+                </p>
+                
+                <button onclick="window.location.reload()" style="
+                  background: #6366f1;
+                  color: white;
+                  border: none;
+                  padding: 10px 20px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-weight: 500;
+                ">Reload Page</button>
+              </div>
+            </div>
+          `;
+        }
+      }
+      // Check if CDN failed to load
+      else if (typeof LitElement === 'undefined' || !customElements.get('fn-app')) {
+        console.error('CDN dependencies failed to load properly');
+        showCDNErrorMessage();
+      }
+    }, 5000); // Wait 5 seconds for CDN resources to load
+    
+    // Clear timeout if app loads successfully
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        if (customElements.get('fn-app')) {
+          clearTimeout(cdnCheckTimeout);
+          // Hide initial loading indicator when app is ready
+          const loadingIndicator = document.getElementById('initial-loading');
+          if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+          }
+        }
+      }, 1000);
+    });
+  </script>
   
   <!-- Global Styles -->
   <style>
@@ -102,6 +281,40 @@
 <body>
   <a href="#main-content" class="skip-to-content">Skip to main content</a>
   <fn-app></fn-app>
+  
+  <!-- Loading indicator while CDN dependencies load -->
+  <div id="initial-loading" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #fafafa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  ">
+    <div style="
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #6366f1;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    "></div>
+    <p style="color: #6b7280; margin: 0;">Loading FamilyNest...</p>
+  </div>
+  
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
   
   <!-- App Components -->
   <script type="module" src="./src/fn-app.js"></script>
