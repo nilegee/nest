@@ -1,0 +1,15 @@
+{
+  "name": "familynest-tests",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Test dependencies for FamilyNest (CDN-only app)",
+  "scripts": {
+    "test": "node scripts/test-runner.mjs",
+    "test:birthdays": "node -e \"import('./src/cards/birthdays-test.js').then(m => m.runAndLogBirthdayTests())\"",
+    "test:ui": "node scripts/test-runner.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^23.0.0"
+  }
+}

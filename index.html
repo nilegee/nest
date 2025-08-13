@@ -37,6 +37,24 @@
       background: #fafafa;
     }
     
+    /* Skip to content link for accessibility */
+    .skip-to-content {
+      position: absolute;
+      top: -40px;
+      left: 6px;
+      background: var(--primary);
+      color: white;
+      padding: 8px;
+      text-decoration: none;
+      border-radius: 4px;
+      z-index: 1000;
+      font-weight: 500;
+    }
+    
+    .skip-to-content:focus {
+      top: 6px;
+    }
+    
     /* Focus styles for accessibility */
     *:focus-visible {
       outline: 2px solid var(--primary);
@@ -82,6 +100,7 @@
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-to-content">Skip to main content</a>
   <fn-app></fn-app>
   
   <!-- App Components -->
