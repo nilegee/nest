@@ -7,6 +7,9 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 import { getStandardCards } from './cards/nest-cards.js';
 import { showSuccess, showError, showLoading } from './toast-helper.js';
+import { renderLoading, renderEmpty, renderError, stateStyles } from './ui-state-helpers.js';
+import { dataOps, withToast } from './db-helpers.js';
+import { renderModal, renderConfirmModal, renderFormModal, ModalManager, modalStyles } from './modal-helpers.js';
 
 export class FnHome extends LitElement {
   static properties = {
@@ -28,7 +31,25 @@ export class FnHome extends LitElement {
     eventsLoading: { type: Boolean },
     birthdaysLoading: { type: Boolean },
     goalsLoading: { type: Boolean },
-    editingEvent: { type: Object }
+    editingEvent: { type: Object },
+    
+    // Error states
+    postsError: { type: Object },
+    eventsError: { type: Object },
+    birthdaysError: { type: Object },
+    actsError: { type: Object },
+    
+    // Modal states
+    showBirthdayModal: { type: Boolean },
+    showEventModal: { type: Boolean },
+    showActModal: { type: Boolean },
+    showConfirmModal: { type: Boolean },
+    confirmModalData: { type: Object },
+    
+    // Form data
+    birthdayFormData: { type: Object },
+    eventFormData: { type: Object },
+    actFormData: { type: Object }
   };
 
   static styles = css`
@@ -36,6 +57,9 @@ export class FnHome extends LitElement {
       display: block;
       min-height: 100vh;
     }
+    
+    ${stateStyles}
+    ${modalStyles}
     
     .layout {
       display: grid;
@@ -887,6 +911,27 @@ export class FnHome extends LitElement {
     this.goalsLoading = true;
     this.editingEvent = null;
     
+    // Error states
+    this.postsError = null;
+    this.eventsError = null;
+    this.birthdaysError = null;
+    this.actsError = null;
+    
+    // Modal states
+    this.showBirthdayModal = false;
+    this.showEventModal = false;
+    this.showActModal = false;
+    this.showConfirmModal = false;
+    this.confirmModalData = null;
+    
+    // Form data
+    this.birthdayFormData = {};
+    this.eventFormData = {};
+    this.actFormData = {};
+    
+    // Modal manager for accessibility
+    this.modalManager = new ModalManager();
+    
     // Listen for window resize
     window.addEventListener('resize', () => {
       this.isMobile = window.innerWidth <= 767;
@@ -894,6 +939,14 @@ export class FnHome extends LitElement {
     });
     
     // Listen for hash changes for routing
+    window.addEventListener('hashchange', () => {
+      const newRoute = this.getRouteFromHash() || 'nest';
+      if (newRoute !== this.currentRoute) {
+        this.currentRoute = newRoute;
+        this.setMainFocus();
+      }
+    });
+  }
     window.addEventListener('hashchange', () => {
       this.currentRoute = this.getRouteFromHash() || 'nest';
       this.setMainFocus();
@@ -1269,29 +1322,37 @@ export class FnHome extends LitElement {
       return;
     }
     
-    this.postsLoading = true;
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          author:profiles!posts_author_id_fkey(full_name)
-        `)
-        .eq('family_id', this.userProfile.family_id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (error) {
-        console.error('Error loading posts:', error);
-        return;
-      }
-      
-      this.posts = data || [];
+      await dataOps.load(
+        () => supabase
+          .from('posts')
+          .select(`
+            *,
+            author:profiles!posts_author_id_fkey(full_name)
+          `)
+          .eq('family_id', this.userProfile.family_id)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        this,
+        'postsLoading',
+        'posts',
+        { 
+          errorMessage: 'Failed to load family posts',
+          showToast: false // We'll handle errors in the UI
+        }
+      );
+      this.postsError = null;
     } catch (error) {
-      console.error('Failed to load posts:', error);
-    } finally {
-      this.postsLoading = false;
+      this.postsError = error;
     }
+  }
+
+  /**
+   * Retry loading posts
+   */
+  retryLoadPosts() {
+    this.postsError = null;
+    this.loadPosts();
   }
 
   /**
@@ -1303,30 +1364,38 @@ export class FnHome extends LitElement {
       return;
     }
     
-    this.eventsLoading = true;
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          owner:profiles!events_owner_id_fkey(full_name)
-        `)
-        .eq('family_id', this.userProfile.family_id)
-        .gte('starts_at', new Date().toISOString())
-        .order('starts_at', { ascending: true })
-        .limit(5);
-      
-      if (error) {
-        console.error('Error loading events:', error);
-        return;
-      }
-      
-      this.events = data || [];
+      await dataOps.load(
+        () => supabase
+          .from('events')
+          .select(`
+            *,
+            owner:profiles!events_owner_id_fkey(full_name)
+          `)
+          .eq('family_id', this.userProfile.family_id)
+          .gte('starts_at', new Date().toISOString())
+          .order('starts_at', { ascending: true })
+          .limit(5),
+        this,
+        'eventsLoading',
+        'events',
+        { 
+          errorMessage: 'Failed to load upcoming events',
+          showToast: false
+        }
+      );
+      this.eventsError = null;
     } catch (error) {
-      console.error('Failed to load events:', error);
-    } finally {
-      this.eventsLoading = false;
+      this.eventsError = error;
     }
+  }
+
+  /**
+   * Retry loading events
+   */
+  retryLoadEvents() {
+    this.eventsError = null;
+    this.loadEvents();
   }
 
   /**
@@ -1338,26 +1407,37 @@ export class FnHome extends LitElement {
       return;
     }
     
-    this.birthdaysLoading = true;
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, dob')
-        .eq('family_id', this.userProfile.family_id)
-        .not('dob', 'is', null);
-      
-      if (error) {
-        console.error('Error loading birthdays:', error);
-        return;
-      }
+      const data = await dataOps.load(
+        () => supabase
+          .from('profiles')
+          .select('full_name, dob')
+          .eq('family_id', this.userProfile.family_id)
+          .not('dob', 'is', null),
+        this,
+        'birthdaysLoading',
+        'birthdays', // We'll process this data before setting it
+        { 
+          errorMessage: 'Failed to load family birthdays',
+          showToast: false
+        }
+      );
       
       // Process birthdays into the format expected by the birthday card
       this.birthdays = this.processBirthdaysForCard(data || []);
+      this.birthdaysError = null;
     } catch (error) {
-      console.error('Failed to load birthdays:', error);
-    } finally {
-      this.birthdaysLoading = false;
+      this.birthdaysError = error;
+      this.birthdays = [];
     }
+  }
+
+  /**
+   * Retry loading birthdays
+   */
+  retryLoadBirthdays() {
+    this.birthdaysError = null;
+    this.loadBirthdays();
   }
 
   /**
@@ -1609,28 +1689,42 @@ export class FnHome extends LitElement {
    * Load acts for user's family
    */
   async loadActs() {
-    if (!this.userProfile?.family_id) return;
+    if (!this.userProfile?.family_id) {
+      this.goalsLoading = false;
+      return;
+    }
     
     try {
-      const { data, error } = await supabase
-        .from('acts')
-        .select(`
-          *,
-          user:profiles!acts_user_id_fkey(full_name)
-        `)
-        .eq('family_id', this.userProfile.family_id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      
-      if (error) {
-        console.error('Error loading acts:', error);
-        return;
-      }
-      
-      this.acts = data || [];
+      await dataOps.load(
+        () => supabase
+          .from('acts')
+          .select(`
+            *,
+            user:profiles!acts_user_id_fkey(full_name)
+          `)
+          .eq('family_id', this.userProfile.family_id)
+          .order('created_at', { ascending: false })
+          .limit(20),
+        this,
+        'goalsLoading',
+        'acts',
+        { 
+          errorMessage: 'Failed to load family acts',
+          showToast: false
+        }
+      );
+      this.actsError = null;
     } catch (error) {
-      console.error('Failed to load acts:', error);
+      this.actsError = error;
     }
+  }
+
+  /**
+   * Retry loading acts
+   */
+  retryLoadActs() {
+    this.actsError = null;
+    this.loadActs();
   }
 
   /**
@@ -1763,6 +1857,48 @@ export class FnHome extends LitElement {
   }
 
   /**
+   * Set focus to main content heading for accessibility
+   */
+  setMainFocus() {
+    // Use requestAnimationFrame to ensure DOM is updated
+    requestAnimationFrame(() => {
+      const mainHeading = this.shadowRoot?.querySelector('#main-content');
+      if (mainHeading) {
+        mainHeading.focus();
+        mainHeading.tabIndex = -1; // Remove from tab order after focus
+      }
+    });
+  }
+
+  /**
+   * Handle keyboard navigation
+   */
+  handleKeyDown(e) {
+    // Global keyboard shortcuts
+    switch (e.key) {
+      case 'Escape':
+        // Close any open modals
+        if (this.showBirthdayModal || this.showEventModal || this.showActModal || this.showConfirmModal) {
+          this.closeAllModals();
+          e.preventDefault();
+        }
+        break;
+    }
+  }
+
+  /**
+   * Close all modals
+   */
+  closeAllModals() {
+    this.showBirthdayModal = false;
+    this.showEventModal = false;
+    this.showActModal = false;
+    this.showConfirmModal = false;
+    this.confirmModalData = null;
+    this.modalManager.close();
+  }
+
+  /**
    * Get current route from window location hash
    */
   getRouteFromHash() {
@@ -1890,28 +2026,35 @@ export class FnHome extends LitElement {
 
       <!-- Posts Feed -->
       <div class="posts-feed">
-        ${this.postsLoading ? html`
-          <div class="data-panel-loading loading-state">
-            <div class="loading-spinner"></div>
-            <span>Loading posts...</span>
-          </div>
-        ` : this.posts.length > 0 ? html`
-          ${this.posts.map(post => html`
-            <article class="post-card">
-              <div class="post-header">
-                <span class="post-author">${post.author?.full_name || 'Family Member'}</span>
-                <time class="post-date">${this.formatPostDate(post.created_at)}</time>
-              </div>
-              <div class="post-body">${post.body}</div>
-            </article>
-          `)}
-        ` : html`
-          <div class="feed-placeholder">
-            <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
-            <h3>No posts yet</h3>
-            <p>Be the first to share something with your family!</p>
-          </div>
-        `}
+        ${this.postsLoading ? 
+          renderLoading('Loading family posts...') :
+          this.postsError ? 
+          renderError({
+            message: 'Failed to load family posts',
+            onRetry: () => this.retryLoadPosts()
+          }) :
+          this.posts.length > 0 ? html`
+            ${this.posts.map(post => html`
+              <article class="post-card">
+                <div class="post-header">
+                  <span class="post-author">${post.author?.full_name || 'Family Member'}</span>
+                  <time class="post-date">${this.formatPostDate(post.created_at)}</time>
+                </div>
+                <div class="post-body">${post.body}</div>
+              </article>
+            `)}
+          ` : 
+          renderEmpty({
+            icon: 'material-symbols:dynamic-feed',
+            title: 'No posts yet',
+            description: 'Be the first to share something with your family!',
+            actionText: 'Create a Post',
+            onAction: () => {
+              const textarea = this.shadowRoot.querySelector('.composer-textarea');
+              if (textarea) textarea.focus();
+            }
+          })
+        }
       </div>
     `;
   }
