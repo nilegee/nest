@@ -188,7 +188,7 @@ export class FnCardTip extends LitElement {
         <div class="card-header">
           <h3 class="card-title">
             <iconify-icon icon="material-symbols:lightbulb"></iconify-icon>
-            Do You Know?
+            Tip of the Day (Static)
           </h3>
           <button class="close-btn" @click=${this.close} aria-label="Close tip">
             <iconify-icon icon="material-symbols:close" style="font-size: 16px;"></iconify-icon>

@@ -4,7 +4,6 @@
  */
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { getUpcomingBirthdaysForCard } from './cards/birthdays.js';
 
 export class FnCardBirthday extends LitElement {
   static properties = {
