@@ -14,7 +14,8 @@ export class FnHome extends LitElement {
     completedAction: { type: Boolean },
     feedText: { type: String },
     isMobile: { type: Boolean },
-    showInlineCards: { type: Boolean }
+    showInlineCards: { type: Boolean },
+    currentRoute: { type: String }
   };
 
   static styles = css`
@@ -388,6 +389,43 @@ export class FnHome extends LitElement {
       color: var(--text-light);
     }
     
+    /* Route Pages */
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .page-header iconify-icon {
+      font-size: 2rem;
+      color: var(--primary);
+    }
+    
+    .page-header h1 {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    .route-placeholder {
+      background: white;
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    
+    .route-placeholder p {
+      margin: 0;
+      color: var(--text-light);
+      font-size: 1.125rem;
+    }
+    
     /* Sidebar */
     .sidebar {
       background: white;
@@ -460,11 +498,17 @@ export class FnHome extends LitElement {
     this.feedText = '';
     this.isMobile = window.innerWidth <= 767;
     this.showInlineCards = window.innerWidth <= 1023; // Include tablet for inline cards
+    this.currentRoute = this.getRouteFromHash() || 'nest';
     
     // Listen for window resize
     window.addEventListener('resize', () => {
       this.isMobile = window.innerWidth <= 767;
       this.showInlineCards = window.innerWidth <= 1023;
+    });
+    
+    // Listen for hash changes for routing
+    window.addEventListener('hashchange', () => {
+      this.currentRoute = this.getRouteFromHash() || 'nest';
     });
   }
 
@@ -591,6 +635,187 @@ export class FnHome extends LitElement {
     `;
   }
 
+  /**
+   * Get current route from window location hash
+   */
+  getRouteFromHash() {
+    return window.location.hash.slice(1) || null;
+  }
+
+  /**
+   * Navigate to a specific route
+   */
+  navigateToRoute(route) {
+    window.location.hash = route;
+  }
+
+  /**
+   * Handle navigation click
+   */
+  handleNavClick(e, route) {
+    e.preventDefault();
+    this.navigateToRoute(route);
+  }
+
+  /**
+   * Render the main content based on current route
+   */
+  renderRouteContent() {
+    switch (this.currentRoute) {
+      case 'feed':
+        return this.renderFeedView();
+      case 'chores':
+        return this.renderChoresView();
+      case 'events':
+        return this.renderEventsView();
+      case 'notes':
+        return this.renderNotesView();
+      case 'profile':
+        return this.renderProfileView();
+      case 'insights':
+        return this.renderInsightsView();
+      case 'nest':
+      default:
+        return this.renderNestView();
+    }
+  }
+
+  /**
+   * Render Nest (default) view
+   */
+  renderNestView() {
+    return html`
+      <!-- Page Title -->
+      <fn-page-title></fn-page-title>
+
+      <!-- Mobile/Tablet Cards (shown above feed when no sidebar) -->
+      ${this.showInlineCards ? html`
+        <div class="mobile-cards">
+          ${this.renderCards(false)}
+        </div>
+      ` : ''}
+
+      <!-- Composer -->
+      <div class="composer">
+        <div class="composer-header">
+          <iconify-icon icon="material-symbols:edit"></iconify-icon>
+          <h3 class="composer-title">Share with Family</h3>
+        </div>
+        <textarea 
+          class="composer-textarea"
+          placeholder="What's on your mind?"
+          .value=${this.feedText}
+          @input=${(e) => this.feedText = e.target.value}
+        ></textarea>
+        <div class="composer-actions">
+          <button class="btn btn-secondary" @click=${() => this.feedText = ''}>
+            Clear
+          </button>
+          <button class="btn btn-primary" @click=${this.handleFeedSubmit}>
+            Share
+          </button>
+        </div>
+      </div>
+
+      <!-- Feed Placeholder -->
+      <div class="feed-placeholder">
+        <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
+        <h3>Family Feed Coming Soon</h3>
+        <p>This is where family updates and shared moments will appear.</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Render Feed view
+   */
+  renderFeedView() {
+    return html`
+      <div class="page-header">
+        <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
+        <h1>Family Feed</h1>
+      </div>
+      <div class="route-placeholder">
+        <p>Feed functionality coming soon...</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Render Chores view
+   */
+  renderChoresView() {
+    return html`
+      <div class="page-header">
+        <iconify-icon icon="material-symbols:checklist"></iconify-icon>
+        <h1>Family Chores</h1>
+      </div>
+      <div class="route-placeholder">
+        <p>Chores management coming soon...</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Render Events view
+   */
+  renderEventsView() {
+    return html`
+      <div class="page-header">
+        <iconify-icon icon="material-symbols:event"></iconify-icon>
+        <h1>Family Events</h1>
+      </div>
+      <div class="route-placeholder">
+        <p>Event management coming soon...</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Render Notes view
+   */
+  renderNotesView() {
+    return html`
+      <div class="page-header">
+        <iconify-icon icon="material-symbols:note"></iconify-icon>
+        <h1>Family Notes</h1>
+      </div>
+      <div class="route-placeholder">
+        <p>Notes functionality coming soon...</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Render Profile view
+   */
+  renderProfileView() {
+    return html`
+      <div class="page-header">
+        <iconify-icon icon="material-symbols:person"></iconify-icon>
+        <h1>Profile</h1>
+      </div>
+      <div class="route-placeholder">
+        <p>Profile management coming soon...</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Render Insights view
+   */
+  renderInsightsView() {
+    return html`
+      <div class="page-header">
+        <iconify-icon icon="material-symbols:insights"></iconify-icon>
+        <h1>Family Insights</h1>
+      </div>
+      <div class="route-placeholder">
+        <p>Insights and analytics coming soon...</p>
+      </div>
+    `;
+  }
+
   render() {
     return html`
       <div class="layout ${this.navExpanded ? 'nav-expanded' : ''}">
@@ -607,43 +832,57 @@ export class FnHome extends LitElement {
           
           <ul class="nav-menu">
             <li class="nav-item">
-              <a href="#" class="nav-link" aria-current="page">
+              <a href="#nest" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'nest')}
+                 aria-current=${this.currentRoute === 'nest' ? 'page' : null}>
                 <iconify-icon icon="material-symbols:home"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Nest</span>
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="#feed" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'feed')}
+                 aria-current=${this.currentRoute === 'feed' ? 'page' : null}>
                 <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Feed</span>
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="#chores" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'chores')}
+                 aria-current=${this.currentRoute === 'chores' ? 'page' : null}>
                 <iconify-icon icon="material-symbols:checklist"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Chores</span>
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="#events" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'events')}
+                 aria-current=${this.currentRoute === 'events' ? 'page' : null}>
                 <iconify-icon icon="material-symbols:event"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Events</span>
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="#notes" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'notes')}
+                 aria-current=${this.currentRoute === 'notes' ? 'page' : null}>
                 <iconify-icon icon="material-symbols:note"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Notes</span>
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="#profile" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'profile')}
+                 aria-current=${this.currentRoute === 'profile' ? 'page' : null}>
                 <iconify-icon icon="material-symbols:person"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Profile</span>
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link">
+              <a href="#insights" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'insights')}
+                 aria-current=${this.currentRoute === 'insights' ? 'page' : null}>
                 <iconify-icon icon="material-symbols:insights"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Insights</span>
               </a>
@@ -659,44 +898,7 @@ export class FnHome extends LitElement {
 
         <!-- Main Content -->
         <main class="main" role="main">
-          <!-- Page Title -->
-          <fn-page-title></fn-page-title>
-
-          <!-- Mobile/Tablet Cards (shown above feed when no sidebar) -->
-          ${this.showInlineCards ? html`
-            <div class="mobile-cards">
-              ${this.renderCards(false)}
-            </div>
-          ` : ''}
-
-          <!-- Composer -->
-          <div class="composer">
-            <div class="composer-header">
-              <iconify-icon icon="material-symbols:edit"></iconify-icon>
-              <h3 class="composer-title">Share with Family</h3>
-            </div>
-            <textarea 
-              class="composer-textarea"
-              placeholder="What's on your mind?"
-              .value=${this.feedText}
-              @input=${(e) => this.feedText = e.target.value}
-            ></textarea>
-            <div class="composer-actions">
-              <button class="btn btn-secondary" @click=${() => this.feedText = ''}>
-                Clear
-              </button>
-              <button class="btn btn-primary" @click=${this.handleFeedSubmit}>
-                Share
-              </button>
-            </div>
-          </div>
-
-          <!-- Feed Placeholder -->
-          <div class="feed-placeholder">
-            <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
-            <h3>Family Feed Coming Soon</h3>
-            <p>This is where family updates and shared moments will appear.</p>
-          </div>
+          ${this.renderRouteContent()}
         </main>
 
         <!-- Sidebar (Desktop only) -->
