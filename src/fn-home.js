@@ -15,7 +15,12 @@ export class FnHome extends LitElement {
     feedText: { type: String },
     isMobile: { type: Boolean },
     showInlineCards: { type: Boolean },
-    currentRoute: { type: String }
+    currentRoute: { type: String },
+    userProfile: { type: Object },
+    posts: { type: Array },
+    events: { type: Array },
+    birthdays: { type: Array },
+    loading: { type: Boolean }
   };
 
   static styles = css`
@@ -426,6 +431,154 @@ export class FnHome extends LitElement {
       font-size: 1.125rem;
     }
     
+    /* Posts Feed */
+    .posts-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .post-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .post-author {
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    .post-date {
+      font-size: 0.875rem;
+      color: var(--text-light);
+    }
+    
+    .post-body {
+      color: var(--text);
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    
+    /* Events */
+    .creation-form {
+      background: white;
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 32px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    
+    .creation-form h3 {
+      margin: 0 0 16px 0;
+      color: var(--text);
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .form-row input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+    }
+    
+    .form-row input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .events-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .event-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    
+    .event-title {
+      margin: 0;
+      color: var(--text);
+      font-size: 1.125rem;
+    }
+    
+    .event-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-light);
+      font-size: 0.875rem;
+    }
+    
+    .event-details {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .event-date,
+    .event-location {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    
+    .event-date iconify-icon,
+    .event-location iconify-icon {
+      color: var(--primary);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-light);
+    }
+    
+    .empty-state iconify-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      color: var(--text-light);
+    }
+    
+    .empty-state h3 {
+      margin: 0 0 8px 0;
+      color: var(--text);
+    }
+    
+    .empty-state p {
+      margin: 0;
+    }
+    
     /* Sidebar */
     .sidebar {
       background: white;
@@ -499,6 +652,11 @@ export class FnHome extends LitElement {
     this.isMobile = window.innerWidth <= 767;
     this.showInlineCards = window.innerWidth <= 1023; // Include tablet for inline cards
     this.currentRoute = this.getRouteFromHash() || 'nest';
+    this.userProfile = null;
+    this.posts = [];
+    this.events = [];
+    this.birthdays = [];
+    this.loading = false;
     
     // Listen for window resize
     window.addEventListener('resize', () => {
@@ -510,6 +668,18 @@ export class FnHome extends LitElement {
     window.addEventListener('hashchange', () => {
       this.currentRoute = this.getRouteFromHash() || 'nest';
     });
+    
+    // Initialize data when component is ready
+    this.initializeData();
+  }
+
+  /**
+   * React to property changes
+   */
+  updated(changedProperties) {
+    if (changedProperties.has('session') && this.session?.user) {
+      this.initializeData();
+    }
   }
 
   /**
@@ -545,6 +715,68 @@ export class FnHome extends LitElement {
   }
 
   /**
+   * Format post creation date for display
+   */
+  formatPostDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 1) {
+      return 'Just now';
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)}h ago`;
+    } else if (diffInHours < 48) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      });
+    }
+  }
+
+  /**
+   * Format event date for display
+   */
+  formatEventDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
+
+  /**
+   * Handle event form submission
+   */
+  async handleEventSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const title = e.target.querySelector('#event-title').value;
+    const dateTime = e.target.querySelector('#event-date').value;
+    const location = e.target.querySelector('#event-location').value;
+    
+    if (!title.trim() || !dateTime) return;
+    
+    this.loading = true;
+    const success = await this.createEvent(title, dateTime, location || null);
+    this.loading = false;
+    
+    if (success) {
+      // Clear form
+      e.target.reset();
+    } else {
+      console.error('Failed to create event');
+    }
+  }
+
+  /**
    * Toggle navigation expanded state
    */
   toggleNav() {
@@ -575,11 +807,18 @@ export class FnHome extends LitElement {
   /**
    * Handle feed post submission
    */
-  handleFeedSubmit() {
+  async handleFeedSubmit() {
     if (this.feedText.trim()) {
-      // TODO: Submit to Supabase
-      console.log('Feed post:', this.feedText);
-      this.feedText = '';
+      this.loading = true;
+      const success = await this.createPost(this.feedText);
+      this.loading = false;
+      
+      if (success) {
+        this.feedText = '';
+      } else {
+        // Show error message to user
+        console.error('Failed to create post');
+      }
     }
   }
 
@@ -595,6 +834,299 @@ export class FnHome extends LitElement {
   }
 
   /**
+   * Initialize data from Supabase
+   */
+  async initializeData() {
+    if (!this.session?.user) return;
+    
+    try {
+      await this.loadUserProfile();
+      await this.loadPosts();
+      await this.loadEvents();
+      await this.loadBirthdays();
+    } catch (error) {
+      console.error('Failed to initialize data:', error);
+    }
+  }
+
+  /**
+   * Load current user profile from public.me view
+   */
+  async loadUserProfile() {
+    try {
+      const { data, error } = await supabase
+        .from('me')
+        .select('*')
+        .single();
+      
+      if (error) {
+        console.error('Error loading user profile:', error);
+        return;
+      }
+      
+      this.userProfile = data;
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+    }
+  }
+
+  /**
+   * Load posts for user's family
+   */
+  async loadPosts() {
+    if (!this.userProfile?.family_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          author:profiles!posts_author_id_fkey(full_name)
+        `)
+        .eq('family_id', this.userProfile.family_id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        console.error('Error loading posts:', error);
+        return;
+      }
+      
+      this.posts = data || [];
+    } catch (error) {
+      console.error('Failed to load posts:', error);
+    }
+  }
+
+  /**
+   * Load events for user's family
+   */
+  async loadEvents() {
+    if (!this.userProfile?.family_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select(`
+          *,
+          owner:profiles!events_owner_id_fkey(full_name)
+        `)
+        .eq('family_id', this.userProfile.family_id)
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(5);
+      
+      if (error) {
+        console.error('Error loading events:', error);
+        return;
+      }
+      
+      this.events = data || [];
+    } catch (error) {
+      console.error('Failed to load events:', error);
+    }
+  }
+
+  /**
+   * Load birthdays from profiles for user's family
+   */
+  async loadBirthdays() {
+    if (!this.userProfile?.family_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, dob')
+        .eq('family_id', this.userProfile.family_id)
+        .not('dob', 'is', null);
+      
+      if (error) {
+        console.error('Error loading birthdays:', error);
+        return;
+      }
+      
+      // Process birthdays into the format expected by the birthday card
+      this.birthdays = this.processBirthdaysForCard(data || []);
+    } catch (error) {
+      console.error('Failed to load birthdays:', error);
+    }
+  }
+
+  /**
+   * Process raw birthday data into format expected by birthday card
+   */
+  processBirthdaysForCard(profiles) {
+    const now = new Date();
+    
+    const processed = profiles.map(profile => {
+      const birthDate = this.parseUTCDate(profile.dob);
+      const { nextOccurrence, turningAge } = this.getNextOccurrence(birthDate, now);
+      const daysUntil = this.getDaysUntil(nextOccurrence, now);
+      
+      return {
+        name: profile.full_name,
+        dob: profile.dob,
+        birthDate,
+        nextOccurrence,
+        turningAge,
+        daysUntil,
+        avatar: this.getAvatar(profile.full_name),
+        dateText: this.formatBirthdayDate(nextOccurrence),
+        countdownText: this.formatCountdown(daysUntil),
+        isToday: daysUntil === 0
+      };
+    });
+    
+    // Sort by days until next occurrence and limit to 3
+    return processed
+      .sort((a, b) => a.daysUntil - b.daysUntil)
+      .slice(0, 3);
+  }
+
+  /**
+   * Parse date of birth as UTC to avoid timezone issues
+   */
+  parseUTCDate(dobString) {
+    const [year, month, day] = dobString.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  /**
+   * Get the next occurrence of a birthday
+   */
+  getNextOccurrence(birthDate, now = new Date()) {
+    const currentYear = now.getUTCFullYear();
+    const birthMonth = birthDate.getUTCMonth();
+    const birthDay = birthDate.getUTCDate();
+    const birthYear = birthDate.getUTCFullYear();
+    
+    let nextOccurrence = new Date(Date.UTC(currentYear, birthMonth, birthDay));
+    
+    if (nextOccurrence < now) {
+      nextOccurrence = new Date(Date.UTC(currentYear + 1, birthMonth, birthDay));
+    }
+    
+    const turningAge = nextOccurrence.getUTCFullYear() - birthYear;
+    
+    return { nextOccurrence, turningAge };
+  }
+
+  /**
+   * Calculate days until a date
+   */
+  getDaysUntil(targetDate, now = new Date()) {
+    const diffTime = targetDate.getTime() - now.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  /**
+   * Format countdown text for display
+   */
+  formatCountdown(daysUntil) {
+    if (daysUntil === 0) return 'Today';
+    if (daysUntil === 1) return 'in 1 day';
+    return `in ${daysUntil} days`;
+  }
+
+  /**
+   * Format birthday date for display
+   */
+  formatBirthdayDate(date) {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      timeZone: 'UTC'
+    });
+  }
+
+  /**
+   * Get avatar emoji based on name
+   */
+  getAvatar(name) {
+    const avatars = {
+      'Mariem': '👩',
+      'Yazid': '👦',
+      'Yahya': '👶',
+      'Ghassan': '👨'
+    };
+    // Default to first letter of name if not in predefined list
+    return avatars[name] || name.charAt(0).toUpperCase();
+  }
+
+  /**
+   * Create a new post
+   */
+  async createPost(body) {
+    if (!this.userProfile?.family_id || !body.trim()) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .insert({
+          family_id: this.userProfile.family_id,
+          author_id: this.session.user.id,
+          body: body.trim(),
+          visibility: 'family'
+        })
+        .select(`
+          *,
+          author:profiles!posts_author_id_fkey(full_name)
+        `)
+        .single();
+      
+      if (error) {
+        console.error('Error creating post:', error);
+        return false;
+      }
+      
+      // Add new post to the beginning of the posts array
+      this.posts = [data, ...this.posts];
+      return true;
+    } catch (error) {
+      console.error('Failed to create post:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a new event
+   */
+  async createEvent(title, startsAt, location = null) {
+    if (!this.userProfile?.family_id || !title.trim()) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .insert({
+          family_id: this.userProfile.family_id,
+          owner_id: this.session.user.id,
+          title: title.trim(),
+          location,
+          starts_at: startsAt
+        })
+        .select(`
+          *,
+          owner:profiles!events_owner_id_fkey(full_name)
+        `)
+        .single();
+      
+      if (error) {
+        console.error('Error creating event:', error);
+        return false;
+      }
+      
+      // Add new event to the events array and re-sort
+      this.events = [...this.events, data].sort((a, b) => 
+        new Date(a.starts_at) - new Date(b.starts_at)
+      );
+      return true;
+    } catch (error) {
+      console.error('Failed to create event:', error);
+      return false;
+    }
+  }
+
+  /**
    * Render cards ensuring parity between mobile and desktop layouts
    * Uses the cards utility to maintain consistent card definitions
    * @param {boolean} includeQuickActions - Whether to include Quick Actions card
@@ -606,7 +1138,7 @@ export class FnHome extends LitElement {
         <fn-card-events></fn-card-events>
       </section>
       <section aria-labelledby="birthday-heading">
-        <fn-card-birthday></fn-card-birthday>
+        <fn-card-birthday .birthdays=${this.birthdays}></fn-card-birthday>
       </section>
       <section aria-labelledby="tip-heading">
         <fn-card-tip></fn-card-tip>
@@ -735,8 +1267,49 @@ export class FnHome extends LitElement {
         <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
         <h1>Family Feed</h1>
       </div>
-      <div class="route-placeholder">
-        <p>Feed functionality coming soon...</p>
+      
+      <!-- Composer -->
+      <div class="composer">
+        <div class="composer-header">
+          <iconify-icon icon="material-symbols:edit"></iconify-icon>
+          <h3 class="composer-title">Share with Family</h3>
+        </div>
+        <textarea 
+          class="composer-textarea"
+          placeholder="What's on your mind?"
+          .value=${this.feedText}
+          @input=${(e) => this.feedText = e.target.value}
+        ></textarea>
+        <div class="composer-actions">
+          <button class="btn btn-secondary" @click=${() => this.feedText = ''}>
+            Clear
+          </button>
+          <button class="btn btn-primary" @click=${this.handleFeedSubmit} 
+                  ?disabled=${this.loading}>
+            ${this.loading ? 'Posting...' : 'Share'}
+          </button>
+        </div>
+      </div>
+
+      <!-- Posts Feed -->
+      <div class="posts-feed">
+        ${this.posts.length > 0 ? html`
+          ${this.posts.map(post => html`
+            <article class="post-card">
+              <div class="post-header">
+                <span class="post-author">${post.author?.full_name || 'Family Member'}</span>
+                <time class="post-date">${this.formatPostDate(post.created_at)}</time>
+              </div>
+              <div class="post-body">${post.body}</div>
+            </article>
+          `)}
+        ` : html`
+          <div class="feed-placeholder">
+            <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
+            <h3>No posts yet</h3>
+            <p>Be the first to share something with your family!</p>
+          </div>
+        `}
       </div>
     `;
   }
@@ -765,8 +1338,57 @@ export class FnHome extends LitElement {
         <iconify-icon icon="material-symbols:event"></iconify-icon>
         <h1>Family Events</h1>
       </div>
-      <div class="route-placeholder">
-        <p>Event management coming soon...</p>
+      
+      <!-- Event Creation Form -->
+      <div class="creation-form">
+        <h3>Add New Event</h3>
+        <form @submit=${this.handleEventSubmit}>
+          <div class="form-row">
+            <input type="text" id="event-title" placeholder="Event title" required>
+            <input type="datetime-local" id="event-date" required>
+          </div>
+          <div class="form-row">
+            <input type="text" id="event-location" placeholder="Location (optional)">
+            <button type="submit" class="btn btn-primary" ?disabled=${this.loading}>
+              ${this.loading ? 'Creating...' : 'Create Event'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Events List -->
+      <div class="events-list">
+        ${this.events.length > 0 ? html`
+          ${this.events.map(event => html`
+            <div class="event-card">
+              <div class="event-header">
+                <h4 class="event-title">${event.title}</h4>
+                <div class="event-meta">
+                  <iconify-icon icon="material-symbols:person"></iconify-icon>
+                  <span>${event.owner?.full_name || 'Family Member'}</span>
+                </div>
+              </div>
+              <div class="event-details">
+                <div class="event-date">
+                  <iconify-icon icon="material-symbols:schedule"></iconify-icon>
+                  <span>${this.formatEventDate(event.starts_at)}</span>
+                </div>
+                ${event.location ? html`
+                  <div class="event-location">
+                    <iconify-icon icon="material-symbols:location-on"></iconify-icon>
+                    <span>${event.location}</span>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `)}
+        ` : html`
+          <div class="empty-state">
+            <iconify-icon icon="material-symbols:event"></iconify-icon>
+            <h3>No upcoming events</h3>
+            <p>Create the first event for your family!</p>
+          </div>
+        `}
       </div>
     `;
   }

@@ -188,22 +188,8 @@ export class FnCardBirthday extends LitElement {
 
   constructor() {
     super();
+    this.birthdays = [];
     this.showCelebration = false;
-    
-    // Load real birthday data using the new module
-    this.loadBirthdays();
-  }
-
-  /**
-   * Load upcoming birthdays from the birthdays module
-   */
-  loadBirthdays() {
-    try {
-      this.birthdays = getUpcomingBirthdaysForCard(new Date(), 3); // Limit to 3 for card display
-    } catch (error) {
-      console.error('Error loading birthdays:', error);
-      this.birthdays = [];
-    }
   }
 
   /**
