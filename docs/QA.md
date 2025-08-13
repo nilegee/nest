@@ -121,6 +121,33 @@
   - [ ] Details toggle shows/hides additional info
   - [ ] "Contribute" and "View Full" buttons are functional
 
+### Modular Components (New)
+- [ ] **Page Title Component**
+  - [ ] fn-page-title displays with home icon and smart greeting
+  - [ ] Shows current date as subtitle
+  - [ ] Document title updates to "FamilyNest — Little moments, big love."
+  - [ ] Respects prefers-reduced-motion (no gradient animation if reduced motion)
+  - [ ] Proper semantic HTML with h1 for headline, p for subtitle
+
+- [ ] **Card Parity & Reuse**
+  - [ ] Desktop sidebar shows 5 cards: Events, Birthdays, Tips, Goal, Quick Actions
+  - [ ] Mobile shows 4 cards inline (Events, Birthdays, Tips, Goal)
+  - [ ] Quick Actions card appears in desktop sidebar only
+  - [ ] All cards use identical markup between layouts
+  - [ ] Cards wrapped in semantic <section> elements with aria-labelledby
+
+- [ ] **Sticky Positioning**
+  - [ ] Desktop sidebar uses .sticky-col class
+  - [ ] Sidebar sticks at top: 80px when scrolling
+  - [ ] Height adjusted to calc(100vh - 80px)
+  - [ ] No layout thrash during scroll
+
+- [ ] **Framework-agnostic Utility**
+  - [ ] renderNestCards() function exists and returns DocumentFragment
+  - [ ] registerNestCard() function exists for extensibility
+  - [ ] hasNestCards() and countNestCards() utility functions work
+  - [ ] Cards utility can be imported and used independently
+
 ### Actions and Interactions
 - [ ] **Gentle Action Completion**
   - [ ] Button changes text to "Completed! ✨"

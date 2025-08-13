@@ -5,6 +5,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { getStandardCards } from './cards/nest-cards.js';
 
 export class FnHome extends LitElement {
   static properties = {
@@ -390,11 +391,14 @@ export class FnHome extends LitElement {
     .sidebar {
       background: white;
       border-left: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow-y: auto;
       padding: 24px 16px;
+    }
+    
+    .sticky-col {
+      position: sticky;
+      top: 80px;
+      height: calc(100vh - 80px);
+      overflow-y: auto;
     }
     
     .sidebar-title {
@@ -532,6 +536,47 @@ export class FnHome extends LitElement {
     }
   }
 
+  /**
+   * Render cards ensuring parity between mobile and desktop layouts
+   * Uses the cards utility to maintain consistent card definitions
+   * @param {boolean} includeQuickActions - Whether to include Quick Actions card
+   * @returns {TemplateResult} LitElement template with cards
+   */
+  renderCards(includeQuickActions = false) {
+    return html`
+      <section aria-labelledby="events-heading">
+        <fn-card-events></fn-card-events>
+      </section>
+      <section aria-labelledby="birthday-heading">
+        <fn-card-birthday></fn-card-birthday>
+      </section>
+      <section aria-labelledby="tip-heading">
+        <fn-card-tip></fn-card-tip>
+      </section>
+      <section aria-labelledby="goal-heading">
+        <fn-card-goal></fn-card-goal>
+      </section>
+      ${includeQuickActions ? html`
+        <section aria-labelledby="quick-actions-heading">
+          <div class="action-card">
+            <div class="action-header">
+              <iconify-icon icon="material-symbols:self-improvement"></iconify-icon>
+              <h2 class="action-title" id="quick-actions-heading">Quick Actions</h2>
+            </div>
+            <p>Take a moment to express gratitude to a family member today.</p>
+            <button 
+              class="action-button ${this.completedAction ? 'completed' : ''}"
+              @click=${this.completeAction}
+              ?disabled=${this.completedAction}
+            >
+              ${this.completedAction ? 'Completed! ✨' : 'Mark Complete'}
+            </button>
+          </div>
+        </section>
+      ` : ''}
+    `;
+  }
+
   render() {
     return html`
       <div class="layout ${this.navExpanded ? 'nav-expanded' : ''}">
@@ -602,37 +647,15 @@ export class FnHome extends LitElement {
 
         <!-- Main Content -->
         <main class="main" role="main">
-          <!-- Greeting Section -->
-          <div class="greeting-section">
-            <h1 class="greeting">${this.getGreeting()}, ${this.getUserName()}!</h1>
-            <p class="date">${this.getCurrentDate()}</p>
-          </div>
+          <!-- Page Title -->
+          <fn-page-title></fn-page-title>
 
           <!-- Mobile Cards (shown above feed on mobile) -->
           ${this.isMobile ? html`
             <div class="mobile-cards">
-              <fn-card-events></fn-card-events>
-              <fn-card-birthday></fn-card-birthday>
-              <fn-card-tip></fn-card-tip>
-              <fn-card-goal></fn-card-goal>
+              ${this.renderCards(false)}
             </div>
           ` : ''}
-
-          <!-- Gentle Action Card -->
-          <div class="action-card">
-            <div class="action-header">
-              <iconify-icon icon="material-symbols:self-improvement"></iconify-icon>
-              <h2 class="action-title">One Gentle Action</h2>
-            </div>
-            <p>Take a moment to express gratitude to a family member today.</p>
-            <button 
-              class="action-button ${this.completedAction ? 'completed' : ''}"
-              @click=${this.completeAction}
-              ?disabled=${this.completedAction}
-            >
-              ${this.completedAction ? 'Completed! ✨' : 'Mark Complete'}
-            </button>
-          </div>
 
           <!-- Composer -->
           <div class="composer">
@@ -666,13 +689,10 @@ export class FnHome extends LitElement {
 
         <!-- Sidebar (Desktop only) -->
         ${!this.isMobile ? html`
-          <aside class="sidebar" role="complementary" aria-label="Family updates">
+          <aside class="sidebar sticky-col" role="complementary" aria-label="Family updates">
             <h2 class="sidebar-title">Family Updates</h2>
             <div class="sidebar-cards">
-              <fn-card-events></fn-card-events>
-              <fn-card-birthday></fn-card-birthday>
-              <fn-card-tip></fn-card-tip>
-              <fn-card-goal></fn-card-goal>
+              ${this.renderCards(true)}
             </div>
           </aside>
         ` : ''}
