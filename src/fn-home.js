@@ -22,7 +22,11 @@ export class FnHome extends LitElement {
     birthdays: { type: Array },
     acts: { type: Array },
     currentGoal: { type: Object },
-    loading: { type: Boolean }
+    loading: { type: Boolean },
+    postsLoading: { type: Boolean },
+    eventsLoading: { type: Boolean },
+    birthdaysLoading: { type: Boolean },
+    goalsLoading: { type: Boolean }
   };
 
   static styles = css`
@@ -560,6 +564,38 @@ export class FnHome extends LitElement {
       color: var(--primary);
     }
     
+    /* Loading states */
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(99, 102, 241, 0.3);
+      border-top: 2px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    .loading-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      color: var(--text-light);
+      gap: 12px;
+    }
+    
+    .data-panel-loading {
+      background: white;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
     .empty-state {
       text-align: center;
       padding: 48px 24px;
@@ -661,6 +697,10 @@ export class FnHome extends LitElement {
     this.acts = [];
     this.currentGoal = null;
     this.loading = false;
+    this.postsLoading = true;
+    this.eventsLoading = true;
+    this.birthdaysLoading = true;
+    this.goalsLoading = true;
     
     // Listen for window resize
     window.addEventListener('resize', () => {
@@ -671,7 +711,11 @@ export class FnHome extends LitElement {
     // Listen for hash changes for routing
     window.addEventListener('hashchange', () => {
       this.currentRoute = this.getRouteFromHash() || 'nest';
+      this.setMainFocus();
     });
+    
+    // Add keyboard navigation support
+    window.addEventListener('keydown', this.handleKeydown.bind(this));
     
     // Initialize data when component is ready
     this.initializeData();
@@ -694,6 +738,34 @@ export class FnHome extends LitElement {
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
     return 'Good evening';
+  }
+
+  /**
+   * Set focus on main heading when route changes (accessibility)
+   */
+  setMainFocus() {
+    // Wait for DOM update
+    setTimeout(() => {
+      const mainHeading = this.shadowRoot.querySelector('h1');
+      if (mainHeading) {
+        mainHeading.focus();
+        mainHeading.tabIndex = -1; // Make it focusable programmatically but not via tab
+      }
+    }, 0);
+  }
+
+  /**
+   * Handle keyboard navigation (accessibility)
+   */
+  handleKeydown(event) {
+    // Handle keyboard activation for navigation links
+    if (event.key === 'Enter' || event.key === ' ') {
+      const target = event.target.closest('.nav-link');
+      if (target) {
+        event.preventDefault();
+        target.click();
+      }
+    }
   }
 
   /**
@@ -885,8 +957,12 @@ export class FnHome extends LitElement {
    * Load posts for user's family
    */
   async loadPosts() {
-    if (!this.userProfile?.family_id) return;
+    if (!this.userProfile?.family_id) {
+      this.postsLoading = false;
+      return;
+    }
     
+    this.postsLoading = true;
     try {
       const { data, error } = await supabase
         .from('posts')
@@ -906,6 +982,8 @@ export class FnHome extends LitElement {
       this.posts = data || [];
     } catch (error) {
       console.error('Failed to load posts:', error);
+    } finally {
+      this.postsLoading = false;
     }
   }
 
@@ -913,8 +991,12 @@ export class FnHome extends LitElement {
    * Load events for user's family
    */
   async loadEvents() {
-    if (!this.userProfile?.family_id) return;
+    if (!this.userProfile?.family_id) {
+      this.eventsLoading = false;
+      return;
+    }
     
+    this.eventsLoading = true;
     try {
       const { data, error } = await supabase
         .from('events')
@@ -935,6 +1017,8 @@ export class FnHome extends LitElement {
       this.events = data || [];
     } catch (error) {
       console.error('Failed to load events:', error);
+    } finally {
+      this.eventsLoading = false;
     }
   }
 
@@ -942,8 +1026,12 @@ export class FnHome extends LitElement {
    * Load birthdays from profiles for user's family
    */
   async loadBirthdays() {
-    if (!this.userProfile?.family_id) return;
+    if (!this.userProfile?.family_id) {
+      this.birthdaysLoading = false;
+      return;
+    }
     
+    this.birthdaysLoading = true;
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -960,6 +1048,8 @@ export class FnHome extends LitElement {
       this.birthdays = this.processBirthdaysForCard(data || []);
     } catch (error) {
       console.error('Failed to load birthdays:', error);
+    } finally {
+      this.birthdaysLoading = false;
     }
   }
 
@@ -1169,38 +1259,48 @@ export class FnHome extends LitElement {
    * Load current family goal (for now, create a simple goal based on acts)
    */
   async loadCurrentGoal() {
-    if (!this.acts || this.acts.length === 0) return;
-    
-    // For now, create a simple goal based on recent acts
-    const thisMonth = new Date();
-    thisMonth.setDate(1);
-    thisMonth.setHours(0, 0, 0, 0);
-    
-    const nextMonth = new Date(thisMonth);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    
-    const monthlyActs = this.acts.filter(act => 
-      new Date(act.created_at) >= thisMonth
-    );
-    
-    const totalPoints = monthlyActs.reduce((sum, act) => sum + (act.points || 1), 0);
-    
-    this.currentGoal = {
-      id: 'monthly-kindness',
-      title: "Monthly Family Kindness",
-      description: "Perform acts of kindness together as a family this month",
-      target: 50,
-      current: totalPoints,
-      unit: "points",
-      startDate: thisMonth,
-      endDate: nextMonth,
-      participants: [...new Set(monthlyActs.map(act => act.user?.full_name).filter(Boolean))],
-      milestones: [
-        { percentage: 25, label: "Getting started!" },
-        { percentage: 50, label: "Halfway there!" },
-        { percentage: 75, label: "Almost done!" }
-      ]
-    };
+    this.goalsLoading = true;
+    try {
+      if (!this.acts || this.acts.length === 0) {
+        this.currentGoal = null;
+        return;
+      }
+      
+      // For now, create a simple goal based on recent acts
+      const thisMonth = new Date();
+      thisMonth.setDate(1);
+      thisMonth.setHours(0, 0, 0, 0);
+      
+      const nextMonth = new Date(thisMonth);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      
+      const monthlyActs = this.acts.filter(act => 
+        new Date(act.created_at) >= thisMonth
+      );
+      
+      const totalPoints = monthlyActs.reduce((sum, act) => sum + (act.points || 1), 0);
+      
+      this.currentGoal = {
+        id: 'monthly-kindness',
+        title: "Monthly Family Kindness",
+        description: "Perform acts of kindness together as a family this month",
+        target: 50,
+        current: totalPoints,
+        unit: "points",
+        startDate: thisMonth,
+        endDate: nextMonth,
+        participants: [...new Set(monthlyActs.map(act => act.user?.full_name).filter(Boolean))],
+        milestones: [
+          { percentage: 25, label: "Getting started!" },
+          { percentage: 50, label: "Halfway there!" },
+          { percentage: 75, label: "Almost done!" }
+        ]
+      };
+    } catch (error) {
+      console.error('Failed to load current goal:', error);
+    } finally {
+      this.goalsLoading = false;
+    }
   }
 
   /**
@@ -1382,7 +1482,7 @@ export class FnHome extends LitElement {
     return html`
       <div class="page-header">
         <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
-        <h1>Family Feed</h1>
+        <h1 id="main-content" tabindex="-1">Family Feed</h1>
       </div>
       
       <!-- Composer -->
@@ -1410,7 +1510,12 @@ export class FnHome extends LitElement {
 
       <!-- Posts Feed -->
       <div class="posts-feed">
-        ${this.posts.length > 0 ? html`
+        ${this.postsLoading ? html`
+          <div class="data-panel-loading loading-state">
+            <div class="loading-spinner"></div>
+            <span>Loading posts...</span>
+          </div>
+        ` : this.posts.length > 0 ? html`
           ${this.posts.map(post => html`
             <article class="post-card">
               <div class="post-header">
@@ -1438,10 +1543,10 @@ export class FnHome extends LitElement {
     return html`
       <div class="page-header">
         <iconify-icon icon="material-symbols:checklist"></iconify-icon>
-        <h1>Family Chores</h1>
+        <h1 id="main-content" tabindex="-1">Family Chores</h1>
       </div>
       <div class="route-placeholder">
-        <p>Chores management coming soon...</p>
+        <p>Chore management and tracking system coming soon. Organize family responsibilities with gentle accountability.</p>
       </div>
     `;
   }
@@ -1453,7 +1558,7 @@ export class FnHome extends LitElement {
     return html`
       <div class="page-header">
         <iconify-icon icon="material-symbols:event"></iconify-icon>
-        <h1>Family Events</h1>
+        <h1 id="main-content" tabindex="-1">Family Events</h1>
       </div>
       
       <!-- Event Creation Form -->
@@ -1475,7 +1580,12 @@ export class FnHome extends LitElement {
 
       <!-- Events List -->
       <div class="events-list">
-        ${this.events.length > 0 ? html`
+        ${this.eventsLoading ? html`
+          <div class="data-panel-loading loading-state">
+            <div class="loading-spinner"></div>
+            <span>Loading events...</span>
+          </div>
+        ` : this.events.length > 0 ? html`
           ${this.events.map(event => html`
             <div class="event-card">
               <div class="event-header">
@@ -1517,10 +1627,10 @@ export class FnHome extends LitElement {
     return html`
       <div class="page-header">
         <iconify-icon icon="material-symbols:note"></iconify-icon>
-        <h1>Family Notes</h1>
+        <h1 id="main-content" tabindex="-1">Family Notes</h1>
       </div>
       <div class="route-placeholder">
-        <p>Notes functionality coming soon...</p>
+        <p>Shared family notes and lists coming soon. Keep important information and memories in one place.</p>
       </div>
     `;
   }
@@ -1532,10 +1642,10 @@ export class FnHome extends LitElement {
     return html`
       <div class="page-header">
         <iconify-icon icon="material-symbols:person"></iconify-icon>
-        <h1>Profile</h1>
+        <h1 id="main-content" tabindex="-1">Profile</h1>
       </div>
       <div class="route-placeholder">
-        <p>Profile management coming soon...</p>
+        <p>Manage your family profile, preferences, and account settings.</p>
       </div>
     `;
   }
@@ -1547,10 +1657,10 @@ export class FnHome extends LitElement {
     return html`
       <div class="page-header">
         <iconify-icon icon="material-symbols:insights"></iconify-icon>
-        <h1>Family Insights</h1>
+        <h1 id="main-content" tabindex="-1">Family Insights</h1>
       </div>
       <div class="route-placeholder">
-        <p>Insights and analytics coming soon...</p>
+        <p>View family activity patterns, goal progress, and meaningful insights about your family's shared journey.</p>
       </div>
     `;
   }
