@@ -3,9 +3,23 @@
 ## Authentication Flow
 - [ ] **Login with Google OAuth**
   - [ ] Click "Continue with Google" button
-  - [ ] Redirects to Google OAuth consent screen
-  - [ ] After authorization, redirects back to application
+  - [ ] Redirects to Google OAuth consent screen with correct redirect URL
+  - [ ] After authorization, redirects back to application (no blank page)
+  - [ ] Console shows: "OAuth redirect URL: [correct URL for environment]"
   - [ ] User session is established and home view loads
+  - [ ] OAuth callback URL fragments are cleaned up from address bar
+
+- [ ] **OAuth Environment Handling**
+  - [ ] Local development: redirects to `http://localhost:3000`
+  - [ ] GitHub Pages: redirects to `https://nilegee.github.io/nest/`
+  - [ ] Console logs show correct redirect URL for current environment
+  - [ ] No "blank page" issues after OAuth redirect
+
+- [ ] **OAuth Error Handling**
+  - [ ] Navigate to `?error=access_denied&error_description=Test%20error`
+  - [ ] Should display error message: "Authentication failed: Test error"
+  - [ ] Should not show loading spinner indefinitely
+  - [ ] Should allow retry of authentication
 
 - [ ] **Magic Link Authentication**
   - [ ] Enter email address in magic link form
@@ -24,9 +38,12 @@
   - [ ] Login succeeds and home view loads
 
 - [ ] **Session Management**
-  - [ ] Refresh page while authenticated - session persists
-  - [ ] Close and reopen browser - requires re-authentication (no session persistence)
+  - [ ] Refresh page while authenticated - session persists within browser tab
+  - [ ] Close and reopen browser tab - requires re-authentication (uses sessionStorage)
   - [ ] Sign out clears session and returns to landing page
+  - [ ] Verify sessionStorage contains auth data when logged in
+  - [ ] Verify localStorage remains empty (no permanent session storage)
+  - [ ] Session cleanup works properly on sign out
 
 ## Layout and Responsiveness
 

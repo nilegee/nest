@@ -87,10 +87,35 @@ export class FnApp extends LitElement {
    */
   async initAuth() {
     try {
-      // Get initial session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('Initializing auth...', {
+        url: window.location.href,
+        hash: window.location.hash,
+        search: window.location.search
+      });
       
-      if (error) throw error;
+      // Check for OAuth error in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+      
+      const error = urlParams.get('error') || hashParams.get('error');
+      const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+      
+      if (error) {
+        console.error('OAuth error in URL:', error, errorDescription);
+        this.error = `Authentication failed: ${errorDescription || error}`;
+        this.loading = false;
+        return;
+      }
+      
+      // Get initial session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
+      }
+      
+      console.log('Initial session:', session?.user?.email || 'No session');
       
       // Set up auth state change listener
       supabase.auth.onAuthStateChange(async (event, session) => {
@@ -112,11 +137,15 @@ export class FnApp extends LitElement {
    * Handle session changes and validate user access
    */
   async handleSessionChange(session) {
+    console.log('Handling session change:', session?.user?.email || 'No session');
     this.error = '';
     
     if (session?.user?.email) {
+      console.log('User authenticated:', session.user.email);
+      
       // Check if user email is whitelisted
       if (!WHITELISTED_EMAILS.includes(session.user.email)) {
+        console.log('User not whitelisted:', session.user.email);
         this.error = `Sorry, access is limited to family members only. Your email (${session.user.email}) is not authorized.`;
         
         // Sign out unauthorized user
@@ -130,6 +159,16 @@ export class FnApp extends LitElement {
         this.loading = false;
         return;
       }
+      
+      console.log('User authorized, loading home view');
+      
+      // Clean up URL after successful OAuth redirect
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        console.log('Cleaning up OAuth callback URL');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } else {
+      console.log('No authenticated user, showing landing page');
     }
     
     this.session = session;
@@ -144,6 +183,11 @@ export class FnApp extends LitElement {
     try {
       this.loading = true;
       await supabase.auth.signOut();
+      
+      // Clear any remaining session data
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.clear();
+      }
     } catch (error) {
       console.error('Sign out error:', error);
       this.error = 'Failed to sign out';
