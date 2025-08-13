@@ -433,10 +433,42 @@ export class FnHome extends LitElement {
       box-shadow: var(--shadow);
     }
     
+    .route-placeholder h3 {
+      margin: 0 0 24px 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    
     .route-placeholder p {
-      margin: 0;
+      margin: 16px 0;
       color: var(--text-light);
       font-size: 1.125rem;
+      line-height: 1.6;
+    }
+    
+    .route-placeholder ul {
+      text-align: left;
+      max-width: 600px;
+      margin: 24px auto;
+      padding: 0;
+      list-style: none;
+    }
+    
+    .route-placeholder li {
+      margin: 12px 0;
+      padding-left: 20px;
+      position: relative;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    
+    .route-placeholder li::before {
+      content: '•';
+      color: var(--primary);
+      font-weight: bold;
+      position: absolute;
+      left: 0;
     }
     
     /* Posts Feed */
@@ -1894,7 +1926,15 @@ export class FnHome extends LitElement {
         <h1 id="main-content" tabindex="-1">Family Chores</h1>
       </div>
       <div class="route-placeholder">
-        <p>Chore management and tracking system coming soon. Organize family responsibilities with gentle accountability.</p>
+        <h3>📋 Family Chores & Responsibilities</h3>
+        <p>This feature will help organize and track family chores with gentle accountability. Each family member will be able to:</p>
+        <ul>
+          <li>View assigned daily and weekly tasks</li>
+          <li>Mark chores as complete</li>
+          <li>Earn appreciation points for contributions</li>
+          <li>See family progress toward shared goals</li>
+        </ul>
+        <p><strong>Coming Soon:</strong> Integration with the family points system and celebration features.</p>
       </div>
     `;
   }
@@ -2089,7 +2129,16 @@ export class FnHome extends LitElement {
         <h1 id="main-content" tabindex="-1">Family Notes</h1>
       </div>
       <div class="route-placeholder">
-        <p>Shared family notes and lists coming soon. Keep important information and memories in one place.</p>
+        <h3>📝 Shared Family Notes & Lists</h3>
+        <p>Keep important family information organized and accessible to everyone. This space will include:</p>
+        <ul>
+          <li>Shopping lists and meal planning notes</li>
+          <li>Important reminders and announcements</li>
+          <li>Memory keeping and family stories</li>
+          <li>Collaborative planning documents</li>
+          <li>Emergency contacts and information</li>
+        </ul>
+        <p><strong>Features in development:</strong> Real-time collaboration, category organization, and search functionality.</p>
       </div>
     `;
   }
@@ -2104,7 +2153,16 @@ export class FnHome extends LitElement {
         <h1 id="main-content" tabindex="-1">Profile</h1>
       </div>
       <div class="route-placeholder">
-        <p>Manage your family profile, preferences, and account settings.</p>
+        <h3>👨‍👩‍👧‍👦 Family Profile Management</h3>
+        <p>Manage your family member profiles and account settings. This section will allow you to:</p>
+        <ul>
+          <li>Update profile information and photos</li>
+          <li>Set notification preferences</li>
+          <li>Manage family member access and roles</li>
+          <li>Configure privacy and sharing settings</li>
+          <li>View account activity and security options</li>
+        </ul>
+        <p><strong>Current Status:</strong> Basic profile data is managed through your authentication provider. Enhanced profile management is planned.</p>
       </div>
     `;
   }
@@ -2119,7 +2177,17 @@ export class FnHome extends LitElement {
         <h1 id="main-content" tabindex="-1">Family Insights</h1>
       </div>
       <div class="route-placeholder">
-        <p>View family activity patterns, goal progress, and meaningful insights about your family's shared journey.</p>
+        <h3>📊 Family Activity & Progress Insights</h3>
+        <p>Discover meaningful patterns in your family's shared journey. This dashboard will provide:</p>
+        <ul>
+          <li>Goal progress tracking and celebration milestones</li>
+          <li>Activity trends and engagement patterns</li>
+          <li>Gratitude and kindness statistics</li>
+          <li>Communication frequency and quality metrics</li>
+          <li>Personal growth indicators for each family member</li>
+        </ul>
+        <p><strong>Data Privacy:</strong> All insights respect your family's privacy and are never shared outside your family circle.</p>
+        <p><strong>Next Steps:</strong> Analytics engine development and visualization design are in progress.</p>
       </div>
     `;
   }
