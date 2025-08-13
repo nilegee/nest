@@ -6,6 +6,19 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 
+/**
+ * Get the appropriate redirect URL based on current environment
+ */
+function getRedirectUrl() {
+  // For local development
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return `${window.location.origin}`;
+  }
+  
+  // For GitHub Pages or other production environments
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
 export class FnLanding extends LitElement {
   static properties = {
     loading: { type: Boolean },
@@ -193,10 +206,13 @@ export class FnLanding extends LitElement {
       this.loading = true;
       this.error = '';
       
+      const redirectUrl = getRedirectUrl();
+      console.log('OAuth redirect URL:', redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://nilegee.github.io/nest/'
+          redirectTo: redirectUrl
         }
       });
       
@@ -224,10 +240,13 @@ export class FnLanding extends LitElement {
       this.loading = true;
       this.error = '';
       
+      const redirectUrl = getRedirectUrl();
+      console.log('Magic link redirect URL:', redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOtp({
         email: this.email.trim(),
         options: {
-          emailRedirectTo: 'https://nilegee.github.io/nest/'
+          emailRedirectTo: redirectUrl
         }
       });
       
