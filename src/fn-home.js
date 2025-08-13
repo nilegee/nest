@@ -109,8 +109,15 @@ export class FnHome extends LitElement {
     
     .nav-logo {
       font-size: 1.5rem;
-      opacity: ${this.navExpanded ? '1' : '0'};
       transition: opacity 0.3s;
+    }
+    
+    .nav-logo.expanded {
+      opacity: 1;
+    }
+    
+    .nav-logo.collapsed {
+      opacity: 0;
     }
     
     .nav-menu {
@@ -171,9 +178,16 @@ export class FnHome extends LitElement {
     }
     
     .nav-text {
-      opacity: ${this.navExpanded ? '1' : '0'};
       transition: opacity 0.3s;
       white-space: nowrap;
+    }
+    
+    .nav-text.expanded {
+      opacity: 1;
+    }
+    
+    .nav-text.collapsed {
+      opacity: 0;
     }
     
     @media (max-width: 767px) {
@@ -528,7 +542,7 @@ export class FnHome extends LitElement {
               <button class="nav-toggle" @click=${this.toggleNav} aria-label="Toggle navigation">
                 <iconify-icon icon="material-symbols:menu"></iconify-icon>
               </button>
-              <div class="nav-logo">🏠 FamilyNest</div>
+              <div class="nav-logo ${this.navExpanded ? 'expanded' : 'collapsed'}">🏠 FamilyNest</div>
             </div>
           ` : ''}
           
@@ -536,50 +550,50 @@ export class FnHome extends LitElement {
             <li class="nav-item">
               <a href="#" class="nav-link" aria-current="page">
                 <iconify-icon icon="material-symbols:home"></iconify-icon>
-                <span class="nav-text">Nest</span>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Nest</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link">
                 <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
-                <span class="nav-text">Feed</span>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Feed</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link">
                 <iconify-icon icon="material-symbols:checklist"></iconify-icon>
-                <span class="nav-text">Chores</span>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Chores</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link">
                 <iconify-icon icon="material-symbols:event"></iconify-icon>
-                <span class="nav-text">Events</span>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Events</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link">
                 <iconify-icon icon="material-symbols:note"></iconify-icon>
-                <span class="nav-text">Notes</span>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Notes</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link">
                 <iconify-icon icon="material-symbols:person"></iconify-icon>
-                <span class="nav-text">Profile</span>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Profile</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link">
                 <iconify-icon icon="material-symbols:insights"></iconify-icon>
-                <span class="nav-text">Insights</span>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Insights</span>
               </a>
             </li>
             ${!this.isMobile ? html`
               <li class="nav-item">
                 <a href="#" class="nav-link" @click=${this.handleSignOut}>
                   <iconify-icon icon="material-symbols:logout"></iconify-icon>
-                  <span class="nav-text">Sign Out</span>
+                  <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Sign Out</span>
                 </a>
               </li>
             ` : ''}
