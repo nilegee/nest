@@ -8,6 +8,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 export class FnCardGoal extends LitElement {
   static properties = {
     goal: { type: Object },
+    acts: { type: Array },
     showDetails: { type: Boolean }
   };
 
@@ -247,6 +248,17 @@ export class FnCardGoal extends LitElement {
       color: #0c4a6e;
     }
     
+    .no-goal {
+      text-align: center;
+      padding: 24px 16px;
+      color: #075985;
+    }
+    
+    .no-goal p {
+      margin: 0 0 16px 0;
+      font-weight: 500;
+    }
+    
     /* Respect reduced motion */
     @media (prefers-reduced-motion: reduce) {
       .progress-fill::after {
@@ -258,24 +270,8 @@ export class FnCardGoal extends LitElement {
   constructor() {
     super();
     this.showDetails = false;
-    
-    // Sample goal data - replace with Supabase queries later
-    this.goal = {
-      id: 1,
-      title: "Family Fitness Challenge",
-      description: "Walk 10,000 steps together as a family every day this month",
-      target: 310000, // 10k steps * 31 days
-      current: 186000, // 60% progress
-      unit: "steps",
-      startDate: new Date(2024, 0, 1), // January 1st
-      endDate: new Date(2024, 0, 31), // January 31st
-      participants: ["Mom", "Dad", "Jake", "Emma"],
-      milestones: [
-        { percentage: 25, label: "Quarter way there!" },
-        { percentage: 50, label: "Halfway milestone!" },
-        { percentage: 75, label: "Almost there!" }
-      ]
-    };
+    this.goal = null;
+    this.acts = [];
   }
 
   /**
@@ -338,6 +334,27 @@ export class FnCardGoal extends LitElement {
   }
 
   render() {
+    if (!this.goal) {
+      return html`
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <iconify-icon icon="material-symbols:flag" class="card-icon"></iconify-icon>
+              <h3 class="card-title">Family Goal</h3>
+            </div>
+          </div>
+          <div class="no-goal">
+            <iconify-icon icon="material-symbols:add-circle" style="font-size: 2rem; margin-bottom: 8px; opacity: 0.6;"></iconify-icon>
+            <p>No active goals</p>
+            <button class="add-contribution-btn" @click=${this.addContribution}>
+              <iconify-icon icon="material-symbols:add"></iconify-icon>
+              Create Goal
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
     const progressPercentage = this.getProgressPercentage();
     const daysRemaining = this.getDaysRemaining();
     const daysElapsed = this.getDaysElapsed();

@@ -20,6 +20,8 @@ export class FnHome extends LitElement {
     posts: { type: Array },
     events: { type: Array },
     birthdays: { type: Array },
+    acts: { type: Array },
+    currentGoal: { type: Object },
     loading: { type: Boolean }
   };
 
@@ -656,6 +658,8 @@ export class FnHome extends LitElement {
     this.posts = [];
     this.events = [];
     this.birthdays = [];
+    this.acts = [];
+    this.currentGoal = null;
     this.loading = false;
     
     // Listen for window resize
@@ -786,8 +790,13 @@ export class FnHome extends LitElement {
   /**
    * Complete gentle action with celebration
    */
-  completeAction() {
+  async completeAction() {
     this.completedAction = true;
+    
+    // Create an act for completing the gentle action
+    await this.createAct('gentle_action', 1, { 
+      description: 'Completed daily gentle action' 
+    });
     
     // Show celebration animation
     const celebration = this.shadowRoot.querySelector('.celebration');
@@ -844,6 +853,8 @@ export class FnHome extends LitElement {
       await this.loadPosts();
       await this.loadEvents();
       await this.loadBirthdays();
+      await this.loadActs();
+      await this.loadCurrentGoal();
     } catch (error) {
       console.error('Failed to initialize data:', error);
     }
@@ -1127,6 +1138,112 @@ export class FnHome extends LitElement {
   }
 
   /**
+   * Load acts for user's family
+   */
+  async loadActs() {
+    if (!this.userProfile?.family_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('acts')
+        .select(`
+          *,
+          user:profiles!acts_user_id_fkey(full_name)
+        `)
+        .eq('family_id', this.userProfile.family_id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (error) {
+        console.error('Error loading acts:', error);
+        return;
+      }
+      
+      this.acts = data || [];
+    } catch (error) {
+      console.error('Failed to load acts:', error);
+    }
+  }
+
+  /**
+   * Load current family goal (for now, create a simple goal based on acts)
+   */
+  async loadCurrentGoal() {
+    if (!this.acts || this.acts.length === 0) return;
+    
+    // For now, create a simple goal based on recent acts
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    thisMonth.setHours(0, 0, 0, 0);
+    
+    const nextMonth = new Date(thisMonth);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    
+    const monthlyActs = this.acts.filter(act => 
+      new Date(act.created_at) >= thisMonth
+    );
+    
+    const totalPoints = monthlyActs.reduce((sum, act) => sum + (act.points || 1), 0);
+    
+    this.currentGoal = {
+      id: 'monthly-kindness',
+      title: "Monthly Family Kindness",
+      description: "Perform acts of kindness together as a family this month",
+      target: 50,
+      current: totalPoints,
+      unit: "points",
+      startDate: thisMonth,
+      endDate: nextMonth,
+      participants: [...new Set(monthlyActs.map(act => act.user?.full_name).filter(Boolean))],
+      milestones: [
+        { percentage: 25, label: "Getting started!" },
+        { percentage: 50, label: "Halfway there!" },
+        { percentage: 75, label: "Almost done!" }
+      ]
+    };
+  }
+
+  /**
+   * Create a new act (goal contribution)
+   */
+  async createAct(kind, points = 1, meta = {}) {
+    if (!this.userProfile?.family_id) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('acts')
+        .insert({
+          family_id: this.userProfile.family_id,
+          user_id: this.session.user.id,
+          kind,
+          points,
+          meta
+        })
+        .select(`
+          *,
+          user:profiles!acts_user_id_fkey(full_name)
+        `)
+        .single();
+      
+      if (error) {
+        console.error('Error creating act:', error);
+        return false;
+      }
+      
+      // Add new act to the beginning of the acts array
+      this.acts = [data, ...this.acts];
+      
+      // Reload current goal to update progress
+      await this.loadCurrentGoal();
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to create act:', error);
+      return false;
+    }
+  }
+
+  /**
    * Render cards ensuring parity between mobile and desktop layouts
    * Uses the cards utility to maintain consistent card definitions
    * @param {boolean} includeQuickActions - Whether to include Quick Actions card
@@ -1144,7 +1261,7 @@ export class FnHome extends LitElement {
         <fn-card-tip></fn-card-tip>
       </section>
       <section aria-labelledby="goal-heading">
-        <fn-card-goal></fn-card-goal>
+        <fn-card-goal .goal=${this.currentGoal} .acts=${this.acts}></fn-card-goal>
       </section>
       ${includeQuickActions ? html`
         <section aria-labelledby="quick-actions-heading">
