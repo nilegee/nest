@@ -108,6 +108,59 @@ Ensure Supabase OAuth settings include the correct redirect URLs:
 
 ## Troubleshooting Steps
 
+### Common Issues & Solutions
+
+**Problem: Loading spinner shows indefinitely**
+- Check browser console for JavaScript errors
+- Verify CDN resources are loading (Lit, Supabase JS, Iconify)
+- Test network connectivity and check for firewall blocks
+
+**Problem: Authentication succeeds but no data loads**
+- Verify user email is in the whitelist table
+- Check that user has proper family_id assignment
+- Confirm RLS policies allow user to read their family's data
+- Look for database connection errors in console
+
+**Problem: Events/Acts CRUD operations fail**
+- Verify user has proper session and family_id
+- Check RLS policies for insert/update/delete permissions
+- Confirm all required fields are provided in forms
+- Look for validation errors in console logs
+
+**Problem: Toast notifications don't appear**
+- Check if JavaScript errors are preventing toast helper loading
+- Verify DOM is ready before showing toasts
+- Check CSS z-index conflicts with other elements
+
+**Problem: Keyboard navigation not working**
+- Verify Tab key moves between interactive elements
+- Check that focus indicators are visible
+- Confirm Enter/Space keys activate links and buttons
+- Test skip-to-content link functionality
+
+### Database Debugging
+
+1. **Check user profile setup:**
+   ```sql
+   SELECT * FROM profiles WHERE id = 'user-uuid-here';
+   ```
+
+2. **Verify family assignment:**
+   ```sql
+   SELECT p.*, f.name as family_name 
+   FROM profiles p 
+   JOIN families f ON p.family_id = f.id 
+   WHERE p.id = 'user-uuid-here';
+   ```
+
+3. **Test RLS policies:**
+   ```sql
+   -- This should only return user's family data
+   SELECT * FROM events ORDER BY starts_at;
+   ```
+
+### Browser Debugging
+
 1. **Check browser console** for JavaScript errors
 2. **Verify network requests** - CDN resources should load successfully
 3. **Check session storage** - should contain Supabase auth data after login

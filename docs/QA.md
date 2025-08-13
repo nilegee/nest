@@ -122,6 +122,25 @@
   - [ ] Details toggle shows/hides additional info
   - [ ] "Contribute" and "View Full" buttons are functional
 
+### Enhanced Data Loading (New)
+- [ ] **Loading States**
+  - [ ] All data panels show loading spinners while fetching data
+  - [ ] Consistent loading indicators across Feed, Events, Birthdays, Goals
+  - [ ] Loading text shows appropriate context ("Loading posts...", "Loading events...")
+  - [ ] No flickering or layout shifts during loading
+
+- [ ] **Empty States**
+  - [ ] Feed shows "No posts yet. Be the first to share!" when empty
+  - [ ] Events shows "No upcoming events. Create the first event!" when empty
+  - [ ] Acts/Goals shows "No acts recorded yet. Start logging!" when empty
+  - [ ] All empty states include helpful icons and encouraging messaging
+
+- [ ] **Toast Notifications**
+  - [ ] Success messages appear for successful operations (create, update, delete)
+  - [ ] Error messages appear for failed operations with helpful text
+  - [ ] Loading toasts show progress and update to success/error states
+  - [ ] Toast notifications are dismissible and auto-remove after appropriate time
+
 ### Modular Components (New)
 - [ ] **Page Title Component**
   - [ ] fn-page-title displays with home icon and smart greeting
@@ -183,6 +202,75 @@
   - [ ] All images have appropriate alt text
   - [ ] Iconify icons don't interfere with screen readers
   - [ ] Form inputs have associated labels
+
+## Enhanced Features (Latest Update)
+
+### Accessibility Improvements
+- [ ] **Skip to Content**
+  - [ ] Skip link appears at top of page and is hidden until focused
+  - [ ] Tab key makes skip link visible at top-left
+  - [ ] Clicking skip link focuses main content heading
+  - [ ] Skip link works on all routes/pages
+
+- [ ] **Keyboard Navigation**
+  - [ ] All navigation links are reachable with Tab key
+  - [ ] Enter or Space key activates navigation links
+  - [ ] Focus management moves to main heading on route changes
+  - [ ] Visible focus indicators on all interactive elements
+
+- [ ] **ARIA & Semantic Structure**
+  - [ ] Main content has id="main-content" for skip link target
+  - [ ] All page headings have proper hierarchy (h1, h2, h3)
+  - [ ] Navigation has aria-current="page" for current route
+  - [ ] Button elements have descriptive aria-label attributes
+
+### Events CRUD Operations
+- [ ] **Event Creation**
+  - [ ] Form accepts title, date/time, and optional location
+  - [ ] Date validation prevents past dates (except same day)
+  - [ ] Shows loading state during creation ("Creating...")
+  - [ ] Success toast appears on successful creation
+  - [ ] Form clears after successful creation
+  - [ ] Error messages appear for validation failures
+
+- [ ] **Event Editing**
+  - [ ] Edit button appears on each event card
+  - [ ] Clicking edit populates form with current event data
+  - [ ] Form title changes to "Edit Event" during editing
+  - [ ] Cancel button appears to exit edit mode
+  - [ ] Update button changes to "Update Event" during editing
+  - [ ] Success toast appears on successful update
+  - [ ] Smooth scroll to form when editing begins
+
+- [ ] **Event Deletion**
+  - [ ] Delete button appears on each event card with red styling
+  - [ ] Confirmation dialog appears before deletion
+  - [ ] Dialog shows event title and warns action cannot be undone
+  - [ ] Event is removed from list after successful deletion
+  - [ ] Success toast appears on successful deletion
+
+### Goals & Acts Management
+- [ ] **Acts Creation**
+  - [ ] Form accepts description, points (1-10), and category
+  - [ ] All fields are required with appropriate validation
+  - [ ] Category dropdown includes: Kindness, Helping, Chore, Learning, etc.
+  - [ ] Points field defaults to 1 and validates numeric input
+  - [ ] Success toast appears on successful logging
+  - [ ] Form clears after successful submission
+
+- [ ] **Goal Progress**
+  - [ ] Current goal displays with progress bar
+  - [ ] Progress bar shows percentage completion
+  - [ ] Progress text shows "current/target points"
+  - [ ] Goal automatically updates when new acts are added
+  - [ ] Shows encouraging empty state when no goal exists
+
+- [ ] **Acts List**
+  - [ ] Recent acts display in chronological order (newest first)
+  - [ ] Each act shows description, author, date, and points
+  - [ ] Points are displayed as badges with primary color
+  - [ ] List limits to 10 most recent acts
+  - [ ] Shows helpful empty state when no acts exist
 
 ## New Features (December 2024)
 

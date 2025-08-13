@@ -6,6 +6,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 import { getStandardCards } from './cards/nest-cards.js';
+import { showSuccess, showError, showLoading } from './toast-helper.js';
 
 export class FnHome extends LitElement {
   static properties = {
@@ -26,7 +27,8 @@ export class FnHome extends LitElement {
     postsLoading: { type: Boolean },
     eventsLoading: { type: Boolean },
     birthdaysLoading: { type: Boolean },
-    goalsLoading: { type: Boolean }
+    goalsLoading: { type: Boolean },
+    editingEvent: { type: Object }
   };
 
   static styles = css`
@@ -509,6 +511,11 @@ export class FnHome extends LitElement {
       border-color: var(--primary);
     }
     
+    .form-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
     .events-list {
       display: flex;
       flex-direction: column;
@@ -528,6 +535,151 @@ export class FnHome extends LitElement {
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 12px;
+    }
+    
+    .event-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-icon {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-light);
+      transition: all 0.2s;
+      min-width: 32px;
+      min-height: 32px;
+    }
+    
+    .btn-icon:hover {
+      background: var(--secondary);
+      color: var(--text);
+    }
+    
+    .btn-icon.btn-danger:hover {
+      background: var(--error);
+      color: white;
+      border-color: var(--error);
+    }
+    
+    .btn-icon:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    
+    /* Goals and Acts styles */
+    .goal-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    
+    .goal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .goal-header h3 {
+      margin: 0;
+      color: var(--text);
+    }
+    
+    .goal-progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .progress-bar {
+      width: 120px;
+      height: 8px;
+      background: var(--secondary);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      transition: width 0.3s ease;
+    }
+    
+    .progress-text {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    .goal-description {
+      margin: 0;
+      color: var(--text-light);
+    }
+    
+    .acts-section {
+      margin-top: 32px;
+    }
+    
+    .acts-section h3 {
+      margin: 0 0 16px 0;
+      color: var(--text);
+    }
+    
+    .acts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .act-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    
+    .act-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    
+    .act-info {
+      flex: 1;
+    }
+    
+    .act-description {
+      font-weight: 500;
+      color: var(--text);
+      display: block;
+      margin-bottom: 4px;
+    }
+    
+    .act-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 0.875rem;
+      color: var(--text-light);
+    }
+    
+    .act-points {
+      background: var(--primary);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 600;
     }
     
     .event-title {
@@ -701,6 +853,7 @@ export class FnHome extends LitElement {
     this.eventsLoading = true;
     this.birthdaysLoading = true;
     this.goalsLoading = true;
+    this.editingEvent = null;
     
     // Listen for window resize
     window.addEventListener('resize', () => {
@@ -828,7 +981,7 @@ export class FnHome extends LitElement {
   }
 
   /**
-   * Handle event form submission
+   * Handle event form submission with validation
    */
   async handleEventSubmit(e) {
     e.preventDefault();
@@ -838,17 +991,139 @@ export class FnHome extends LitElement {
     const dateTime = e.target.querySelector('#event-date').value;
     const location = e.target.querySelector('#event-location').value;
     
-    if (!title.trim() || !dateTime) return;
+    if (!title.trim() || !dateTime) {
+      showError('Please provide both title and date for the event.');
+      return;
+    }
     
-    this.loading = true;
-    const success = await this.createEvent(title, dateTime, location || null);
-    this.loading = false;
+    // Validate date is not in the past (allow same day)
+    const eventDate = new Date(dateTime);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    if (success) {
-      // Clear form
-      e.target.reset();
-    } else {
-      console.error('Failed to create event');
+    if (eventDate < today) {
+      showError('Event date cannot be in the past.');
+      return;
+    }
+    
+    const loadingToast = showLoading(this.editingEvent ? 'Updating event...' : 'Creating event...');
+    
+    try {
+      let success;
+      if (this.editingEvent) {
+        success = await this.updateEvent(this.editingEvent.id, title, dateTime, location || null);
+      } else {
+        success = await this.createEvent(title, dateTime, location || null);
+      }
+      
+      if (success) {
+        loadingToast.success(this.editingEvent ? 'Event updated successfully!' : 'Event created successfully!');
+        // Clear form and editing state
+        e.target.reset();
+        this.editingEvent = null;
+      } else {
+        loadingToast.error('Failed to save event. Please try again.');
+      }
+    } catch (error) {
+      loadingToast.error('An error occurred while saving the event.');
+      console.error('Event submission error:', error);
+    }
+  }
+
+  /**
+   * Handle act form submission
+   */
+  async handleActSubmit(e) {
+    e.preventDefault();
+    
+    const description = e.target.querySelector('#act-description').value;
+    const points = parseInt(e.target.querySelector('#act-points').value);
+    const kind = e.target.querySelector('#act-kind').value;
+    
+    if (!description.trim() || !kind || points < 1) {
+      showError('Please fill in all fields with valid values.');
+      return;
+    }
+    
+    const loadingToast = showLoading('Logging act...');
+    
+    try {
+      const success = await this.createAct(kind, points, { description: description.trim() });
+      
+      if (success) {
+        loadingToast.success('Act logged successfully!');
+        // Clear form
+        e.target.reset();
+        e.target.querySelector('#act-points').value = '1'; // Reset to default
+      } else {
+        loadingToast.error('Failed to log act. Please try again.');
+      }
+    } catch (error) {
+      loadingToast.error('An error occurred while logging the act.');
+      console.error('Act submission error:', error);
+    }
+  }
+
+  /**
+   * Start editing an event
+   */
+  editEvent(event) {
+    this.editingEvent = event;
+    
+    // Populate form with event data
+    const form = this.shadowRoot.querySelector('form');
+    if (form) {
+      form.querySelector('#event-title').value = event.title;
+      form.querySelector('#event-location').value = event.location || '';
+      
+      // Format date for datetime-local input
+      const eventDate = new Date(event.starts_at);
+      const formattedDate = eventDate.toISOString().slice(0, 16);
+      form.querySelector('#event-date').value = formattedDate;
+    }
+    
+    // Scroll to form
+    const creationForm = this.shadowRoot.querySelector('.creation-form');
+    if (creationForm) {
+      creationForm.scrollIntoView({ behavior: 'smooth' });
+      // Focus the title field
+      setTimeout(() => {
+        form.querySelector('#event-title').focus();
+      }, 300);
+    }
+  }
+
+  /**
+   * Cancel editing an event
+   */
+  cancelEditEvent() {
+    this.editingEvent = null;
+    const form = this.shadowRoot.querySelector('form');
+    if (form) {
+      form.reset();
+    }
+  }
+
+  /**
+   * Delete an event with confirmation
+   */
+  async deleteEvent(event) {
+    const confirmed = confirm(`Are you sure you want to delete "${event.title}"?\n\nThis action cannot be undone.`);
+    
+    if (!confirmed) return;
+    
+    const loadingToast = showLoading('Deleting event...');
+    
+    try {
+      const success = await this.removeEvent(event.id);
+      if (success) {
+        loadingToast.success('Event deleted successfully.');
+      } else {
+        loadingToast.error('Failed to delete event. Please try again.');
+      }
+    } catch (error) {
+      loadingToast.error('An error occurred while deleting the event.');
+      console.error('Event deletion error:', error);
     }
   }
 
@@ -1228,6 +1503,77 @@ export class FnHome extends LitElement {
   }
 
   /**
+   * Update an existing event
+   */
+  async updateEvent(eventId, title, startsAt, location = null) {
+    if (!this.userProfile?.family_id || !title.trim()) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          title: title.trim(),
+          location,
+          starts_at: startsAt
+        })
+        .eq('id', eventId)
+        .eq('family_id', this.userProfile.family_id)
+        .select(`
+          *,
+          owner:profiles!events_owner_id_fkey(full_name)
+        `)
+        .single();
+      
+      if (error) {
+        console.error('Error updating event:', error);
+        return false;
+      }
+      
+      // Update the event in the events array
+      this.events = this.events.map(event => 
+        event.id === eventId ? data : event
+      ).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Remove an event
+   */
+  async removeEvent(eventId) {
+    if (!this.userProfile?.family_id) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId)
+        .eq('family_id', this.userProfile.family_id);
+      
+      if (error) {
+        console.error('Error deleting event:', error);
+        return false;
+      }
+      
+      // Remove event from the events array
+      this.events = this.events.filter(event => event.id !== eventId);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      return false;
+    }
+  }
+    } catch (error) {
+      console.error('Failed to create event:', error);
+      return false;
+    }
+  }
+
+  /**
    * Load acts for user's family
    */
   async loadActs() {
@@ -1417,6 +1763,8 @@ export class FnHome extends LitElement {
         return this.renderChoresView();
       case 'events':
         return this.renderEventsView();
+      case 'goals':
+        return this.renderGoalsView();
       case 'notes':
         return this.renderNotesView();
       case 'profile':
@@ -1563,7 +1911,7 @@ export class FnHome extends LitElement {
       
       <!-- Event Creation Form -->
       <div class="creation-form">
-        <h3>Add New Event</h3>
+        <h3>${this.editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
         <form @submit=${this.handleEventSubmit}>
           <div class="form-row">
             <input type="text" id="event-title" placeholder="Event title" required>
@@ -1571,9 +1919,16 @@ export class FnHome extends LitElement {
           </div>
           <div class="form-row">
             <input type="text" id="event-location" placeholder="Location (optional)">
-            <button type="submit" class="btn btn-primary" ?disabled=${this.loading}>
-              ${this.loading ? 'Creating...' : 'Create Event'}
-            </button>
+            <div class="form-actions">
+              ${this.editingEvent ? html`
+                <button type="button" class="btn btn-secondary" @click=${this.cancelEditEvent}>
+                  Cancel
+                </button>
+              ` : ''}
+              <button type="submit" class="btn btn-primary" ?disabled=${this.loading}>
+                ${this.loading ? 'Saving...' : this.editingEvent ? 'Update Event' : 'Create Event'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -1590,10 +1945,20 @@ export class FnHome extends LitElement {
             <div class="event-card">
               <div class="event-header">
                 <h4 class="event-title">${event.title}</h4>
-                <div class="event-meta">
-                  <iconify-icon icon="material-symbols:person"></iconify-icon>
-                  <span>${event.owner?.full_name || 'Family Member'}</span>
+                <div class="event-actions">
+                  <button class="btn-icon" @click=${() => this.editEvent(event)} 
+                          aria-label="Edit event">
+                    <iconify-icon icon="material-symbols:edit"></iconify-icon>
+                  </button>
+                  <button class="btn-icon btn-danger" @click=${() => this.deleteEvent(event)} 
+                          aria-label="Delete event">
+                    <iconify-icon icon="material-symbols:delete"></iconify-icon>
+                  </button>
                 </div>
+              </div>
+              <div class="event-meta">
+                <iconify-icon icon="material-symbols:person"></iconify-icon>
+                <span>${event.owner?.full_name || 'Family Member'}</span>
               </div>
               <div class="event-details">
                 <div class="event-date">
@@ -1616,6 +1981,100 @@ export class FnHome extends LitElement {
             <p>Create the first event for your family!</p>
           </div>
         `}
+      </div>
+    `;
+  }
+
+  /**
+   * Render Goals view
+   */
+  renderGoalsView() {
+    return html`
+      <div class="page-header">
+        <iconify-icon icon="material-symbols:flag"></iconify-icon>
+        <h1 id="main-content" tabindex="-1">Family Goals & Acts</h1>
+      </div>
+      
+      <!-- Current Goal Display -->
+      ${this.goalsLoading ? html`
+        <div class="data-panel-loading loading-state">
+          <div class="loading-spinner"></div>
+          <span>Loading goal...</span>
+        </div>
+      ` : this.currentGoal ? html`
+        <div class="goal-card">
+          <div class="goal-header">
+            <h3>${this.currentGoal.title}</h3>
+            <div class="goal-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${Math.min((this.currentGoal.current / this.currentGoal.target) * 100, 100)}%"></div>
+              </div>
+              <span class="progress-text">${this.currentGoal.current}/${this.currentGoal.target} ${this.currentGoal.unit}</span>
+            </div>
+          </div>
+          <p class="goal-description">${this.currentGoal.description}</p>
+        </div>
+      ` : html`
+        <div class="empty-state">
+          <iconify-icon icon="material-symbols:flag"></iconify-icon>
+          <h3>No active goal</h3>
+          <p>Create your first family goal by logging some acts of kindness below!</p>
+        </div>
+      `}
+      
+      <!-- Act Creation Form -->
+      <div class="creation-form">
+        <h3>Log Family Act</h3>
+        <form @submit=${this.handleActSubmit}>
+          <div class="form-row">
+            <input type="text" id="act-description" placeholder="What kind act did you do?" required>
+            <input type="number" id="act-points" placeholder="Points" value="1" min="1" max="10" required>
+          </div>
+          <div class="form-row">
+            <select id="act-kind" required>
+              <option value="">Select category...</option>
+              <option value="kindness">Act of Kindness</option>
+              <option value="help">Helping Others</option>
+              <option value="chore">Completed Chore</option>
+              <option value="learning">Learning Together</option>
+              <option value="creativity">Creative Activity</option>
+              <option value="exercise">Physical Activity</option>
+              <option value="other">Other</option>
+            </select>
+            <button type="submit" class="btn btn-primary" ?disabled=${this.loading}>
+              ${this.loading ? 'Logging...' : 'Log Act'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Recent Acts List -->
+      <div class="acts-section">
+        <h3>Recent Family Acts</h3>
+        <div class="acts-list">
+          ${this.acts.length > 0 ? html`
+            ${this.acts.slice(0, 10).map(act => html`
+              <div class="act-card">
+                <div class="act-header">
+                  <div class="act-info">
+                    <span class="act-description">${act.description || act.kind}</span>
+                    <div class="act-meta">
+                      <span class="act-author">${act.user?.full_name || 'Family Member'}</span>
+                      <span class="act-date">${this.formatPostDate(act.created_at)}</span>
+                    </div>
+                  </div>
+                  <div class="act-points">+${act.points}</div>
+                </div>
+              </div>
+            `)}
+          ` : html`
+            <div class="empty-state">
+              <iconify-icon icon="material-symbols:volunteer-activism"></iconify-icon>
+              <h3>No acts recorded yet</h3>
+              <p>Start logging your family's acts of kindness and achievements!</p>
+            </div>
+          `}
+        </div>
       </div>
     `;
   }

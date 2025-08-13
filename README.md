@@ -1,5 +1,7 @@
 # nest 🏠
 
+[![CI Tests](https://github.com/nilegee/nest/actions/workflows/ci.yml/badge.svg)](https://github.com/nilegee/nest/actions/workflows/ci.yml)
+
 **TL;DR**: Zero‑build private family hub with Landing (public login) and Home/Nest (private dashboard). Lit + Iconify + Supabase, hosted on GitHub Pages, email whitelist + strict RLS.
 
 ## ⚠️ DANGER: Manual Database Reset
