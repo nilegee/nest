@@ -11,41 +11,79 @@ Repository: nilegee/nest
   - Single public route serving login functionality
   - Redirects to authenticated view after successful whitelist validation
 
-### Authenticated Routes  
-- **Home/Nest Dashboard** (`src/fn-home.js`)
-  - Main family hub accessible only to whitelisted users
-  - Single authenticated view with responsive layout
+### Authenticated Routes (Hash-based Router)
+- **Nest Dashboard** (`src/fn-home.js` - route: `#nest` or default)
+  - Main family hub with cards sidebar and action button
+  - Fully implemented with live data and interactions
   - Session-guarded via email whitelist validation (`web/env.js:8`)
+
+- **Feed View** (`src/fn-home.js` - route: `#feed`)
+  - Post composer and family feed display
+  - Partially implemented with Supabase integration
+  - Post creation functional (`src/fn-home.js:1440-1459`)
+
+- **Events View** (`src/fn-home.js` - route: `#events`)
+  - Event CRUD operations with calendar interface
+  - Fully implemented with Supabase backend
+  - Create/edit/delete functionality active (`src/fn-home.js:1475-1568`)
+
+- **Chores View** (`src/fn-home.js` - route: `#chores`)
+  - Placeholder implementation only
+  - Shows "coming soon" message (`src/fn-home.js:renderChoresView`)
+
+- **Notes View** (`src/fn-home.js` - route: `#notes`)
+  - Placeholder implementation only
+  - Shows "coming soon" message (`src/fn-home.js:renderNotesView`)
+
+- **Profile View** (`src/fn-home.js` - route: `#profile`)
+  - Placeholder implementation only
+  - Shows "coming soon" message (`src/fn-home.js:renderProfileView`)
+
+- **Insights View** (`src/fn-home.js` - route: `#insights`)
+  - Placeholder implementation only
+  - Shows "coming soon" message (`src/fn-home.js:renderInsightsView`)
 
 ### Route Flow
 ```
 index.html → fn-app.js (session guard) → {
   No session: fn-landing.js (public)
-  Valid session + whitelist: fn-home.js (authenticated)
+  Valid session + whitelist: fn-home.js (authenticated) → {
+    Hash routing: #nest, #feed, #events, #chores, #notes, #profile, #insights
+    Default: nest view
+  }
   Invalid user: auto-signout + redirect to landing
 }
 ```
 
-**Evidence**: Session routing logic in `src/fn-app.js:231-235`, whitelist check at `src/fn-app.js:147-161`
+**Evidence**: Hash routing in `src/fn-home.js:renderRouteContent()`, session logic in `src/fn-app.js:147-161`, navigation at `src/fn-home.js:2143-2197`
 
 ---
 
 ## 2. TECHNOLOGIES & LIBRARIES
 
 ### Runtime Dependencies (CDN-based)
-- **Lit 3** (`index.html:9`) - Web components framework, actively used
-- **Iconify** (`index.html:10`) - Icon components, extensively used across all cards
-- **Supabase JS v2** (`web/supabaseClient.js:6`) - Auth & database client, actively used
+- **Lit 3** (`index.html:9`) - Web components framework, actively used for all components
+- **Iconify** (`index.html:10`) - Icon components, extensively used across all cards and navigation
+- **Supabase JS v2** (`web/supabaseClient.js:6`) - Auth & database client, actively used for authentication and data operations
+
+### Testing Dependencies (package.json)
+- **jsdom v23.0.0** (`package.json:13`) - DOM environment for tests
+- **Node.js scripts** (`package.json:7-11`) - Test runners and utilities
 
 ### Installed but Unused
-- **Zero unused dependencies** - No package.json, no build system, pure CDN approach
+- **jsdom currently broken** - Test dependency exists but fails to run (`npm test` fails with module not found)
 
 ### Infrastructure  
 - **GitHub Pages** hosting (static)
-- **Supabase** backend (PostgreSQL + Auth)
-- **sessionStorage** for temporary session persistence (`web/supabaseClient.js:16-30`)
+- **Supabase** backend (PostgreSQL + Auth + RLS)
+- **sessionStorage** for session persistence (`web/supabaseClient.js:16-30`)
+- **GitHub Actions CI** (`github/workflows/ci.yml`) - JavaScript tests + optional SQL verification
 
-**Evidence**: All dependencies loaded via CDN in `index.html:8-10`, no build artifacts or unused packages detected
+### Build System
+- **Zero-build approach** - Pure CDN imports, no bundling or compilation
+- **Environment sync** (`scripts/sync-env.mjs`) - Generates `web/env.js` from `.env.local`
+
+**Evidence**: CDN imports in `index.html:8-10`, package.json dependencies, CI workflow configuration
 
 ---
 
@@ -53,28 +91,33 @@ index.html → fn-app.js (session guard) → {
 
 ### Desktop (≥1024px)
 - **Grid Layout**: 76px nav (collapsed) | main content | 320px sidebar
-- **Nav Expansion**: Hover/click expands to 240px with text labels
+- **Nav Expansion**: Hover/click expands to 240px with text labels (`src/fn-home.js:2134`)
 - **Right Sidebar**: Sticky positioned, contains 4 cards + Quick Actions
-- **Breakpoint**: `src/fn-home.js:36` and `index.html:66`
+- **Sidebar Cards**: Events, Birthdays, Tips, Goals displayed vertically
+- **Main Content**: Route-specific views with full functionality
+- **Breakpoint**: `src/fn-home.js:36` and `index.html:76`
 
 ### Tablet (768-1023px)  
 - **Grid Layout**: 60px nav | main content (sidebar hidden)
-- **Navigation**: Icon-only rail, no expansion
-- **Cards**: Hidden from sidebar, not shown elsewhere (regression)
-- **Breakpoint**: `src/fn-home.js:36-48`, `index.html:66-73`
+- **Navigation**: Icon-only rail, no expansion capability
+- **Cards**: **REGRESSION** - Hidden from sidebar, not shown elsewhere
+- **Main Content**: Full width, but loses family update cards entirely
+- **Breakpoint**: `src/fn-home.js:51-62`, condition `showInlineCards` logic
 
 ### Mobile (≤767px)
 - **Single Column**: Main content full width + 60px bottom tabs  
-- **Navigation**: Bottom tab bar with icons + labels
-- **Cards**: Rendered above feed in main content (`src/fn-home.js:654-658`)
-- **Floating Action**: + button bottom right (`src/fn-home.js:427-440`)
-- **Breakpoint**: `src/fn-home.js:50-66`, `index.html:76-81`
+- **Navigation**: Bottom tab bar with icons + labels (`src/fn-home.js:95-100`)
+- **Cards**: Rendered inline above main content (`src/fn-home.js:showInlineCards`)
+- **Floating Action**: + button bottom right (`src/fn-home.js:2210-2214`)
+- **Missing Feature**: No sign-out button accessible (hidden in collapsed nav)
+- **Breakpoint**: `src/fn-home.js:65-81`
 
 ### Layout Regressions
-- **Tablet**: Cards completely disappear (no mobile inline fallback)
-- **Mobile**: No sign-out button visible in navigation
+- **P1 Issue**: Tablet users lose all family update cards (no alternative display)
+- **P2 Issue**: Mobile users cannot sign out (button only in desktop nav)
+- **Responsive Logic**: `this.showInlineCards = window.innerWidth <= 1023` includes tablets but doesn't render cards
 
-**Evidence**: Responsive CSS in `src/fn-home.js:36-66`, breakpoint definitions in `index.html:66-81`
+**Evidence**: Responsive CSS in `src/fn-home.js:51-100`, breakpoint logic at line 1164-1166, nav rendering at `src/fn-home.js:2124-2203`
 
 ---
 
@@ -82,55 +125,72 @@ index.html → fn-app.js (session guard) → {
 
 ```
 /index.html                    # Root entry point, CDN imports, global styles
+/package.json                  # Test dependencies only (jsdom, test scripts)
 /src/                          # Lit web components
-  fn-app.js                    # Session guard + routing logic
-  fn-landing.js                # Login view (Google OAuth + Magic Link)  
-  fn-home.js                   # Authenticated dashboard with responsive layout
-  fn-page-title.js             # Reusable page header component
+  fn-app.js                    # Session guard + routing logic (235 lines)
+  fn-landing.js                # Login view (Google OAuth + Magic Link) (265 lines)
+  fn-home.js                   # Authenticated dashboard with responsive layout (2215 lines)
+  fn-page-title.js             # Reusable page header component (68 lines)
   fn-card-*.js                 # Individual card components (4 total)
+    fn-card-birthday.js        # Birthday display + hardcoded sample data (235 lines)
+    fn-card-events.js          # Event management with Supabase CRUD (232 lines)
+    fn-card-goal.js            # Goal tracking + sample data (380 lines)
+    fn-card-tip.js             # Daily tips + hardcoded content (175 lines)
+  toast-helper.js              # Toast notification utility (123 lines)
+  ui-contract-test.js          # Component smoke tests (75 lines)
   cards/                       # Data & utility modules
-    nest-cards.js              # Card registry + rendering utilities
-    birthdays.js               # Birthday calculations + sample data
-    birthdays-test.js          # Unit tests for birthday logic
-  ui-contract-test.js          # Component smoke tests
-/cards/                        # Directory referenced in docs but empty
+    nest-cards.js              # Card registry + rendering utilities (179 lines)
+    birthdays.js               # Birthday calculations + sample data (45 lines)
+    birthdays-test.js          # Unit tests for birthday logic (87 lines)
+/test/                         # Test infrastructure
+  mocks.js                     # Test doubles and fixtures (35 lines)
 /web/                          # Environment & API setup
-  env.js                       # Generated environment config (committed)
-  supabaseClient.js            # Supabase client with sessionStorage
-/db/schema.sql                 # Complete database schema + RLS policies  
+  env.js                       # Generated environment config (8 lines, committed)
+  supabaseClient.js            # Supabase client with sessionStorage (35 lines)
+/db/schema.sql                 # Complete database schema + RLS policies (220 lines)
 /docs/                         # Documentation & QA procedures
-  QA.md                        # Comprehensive smoke test checklist
-  OAUTH_DEBUG.md               # OAuth troubleshooting guide
+  QA.md                        # Comprehensive smoke test checklist (418 lines)
+  OAUTH_DEBUG.md               # OAuth troubleshooting guide (167 lines)
+  ROUTER.md                    # Hash-based routing documentation (149 lines)
 /scripts/                      # Maintenance & verification tools
   sync-env.mjs                 # Environment variable sync script
+  test-runner.mjs              # Test orchestration
   verify-*.sql                 # Database validation queries
 /.github/workflows/            # CI/CD automation
+  ci.yml                       # JavaScript tests + SQL verification
   db-reset.yml                 # Manual database reset workflow
+/AGENTS.md                     # Development guidelines (67 lines)
+/README.md                     # Project overview (176 lines)
 ```
 
-**Evidence**: Directory structure verified via `tree` command, each file purpose documented in headers
-
----
+**Evidence**: Directory structure verified via `tree` command, line counts from `wc -l`, each file purpose documented in headers
 
 ## 5. NAVIGATION MAP
 
 ### Active Links (Real Behavior)
-- **Nest** (`src/fn-home.js:596-600`) - Current page indicator, no navigation
-- **Sign Out** (`src/fn-home.js:639-643`) - Desktop only, calls `supabase.auth.signOut()`
+- **Nest** (`src/fn-home.js:2143-2148`) - Home dashboard, currently active route indicator
+- **Feed** (`src/fn-home.js:2151-2156`) - Posts view with functional composer and Supabase integration
+- **Events** (`src/fn-home.js:2167-2172`) - Full CRUD event management with Supabase backend
+- **Sign Out** (`src/fn-home.js:2199-2204`) - Desktop only, calls `supabase.auth.signOut()`
 
-### Placeholder Links (No Action)
-- **Feed** (`src/fn-home.js:602-606`) - href="#", no click handler
-- **Chores** (`src/fn-home.js:608-612`) - href="#", no click handler  
-- **Events** (`src/fn-home.js:614-618`) - href="#", no click handler
-- **Notes** (`src/fn-home.js:620-624`) - href="#", no click handler
-- **Profile** (`src/fn-home.js:626-630`) - href="#", no click handler
-- **Insights** (`src/fn-home.js:632-636`) - href="#", no click handler
+### Placeholder Links (Rendered but No Action)
+- **Chores** (`src/fn-home.js:2159-2164`) - Hash navigation works, shows placeholder content
+- **Notes** (`src/fn-home.js:2175-2180`) - Hash navigation works, shows placeholder content
+- **Profile** (`src/fn-home.js:2183-2188`) - Hash navigation works, shows placeholder content
+- **Insights** (`src/fn-home.js:2191-2196`) - Hash navigation works, shows placeholder content
+
+### Navigation Behavior
+- **Hash Routing**: `window.location.hash` triggers route changes (`src/fn-home.js:1171`)
+- **Focus Management**: Routes update main heading focus for accessibility
+- **Mobile Navigation**: Bottom tabs functional with proper ARIA states
+- **Desktop Navigation**: Collapsible sidebar with hover expansion
 
 ### Dead Routes & TODOs
-- All navigation items except Nest/Sign Out are placeholders awaiting implementation
-- Mobile sign-out not accessible (hidden in collapsed nav)
+- All navigation items except Nest, Feed, Events are placeholder implementations
+- Mobile sign-out not accessible (hidden in collapsed nav, no bottom tab)
+- **Route Registration**: Uses switch statement, easy to extend (`src/fn-home.js:1486-1500`)
 
-**Evidence**: Navigation markup in `src/fn-home.js:594-645`, only aria-current="page" on Nest, href="#" on others
+**Evidence**: Navigation markup in `src/fn-home.js:2143-2204`, route handlers at `src/fn-home.js:1486-1500`, hash change listener at `src/fn-home.js:1171`
 
 ---
 
@@ -140,195 +200,366 @@ index.html → fn-app.js (session guard) → {
 - **Location**: `web/supabaseClient.js:11`
 - **Config**: persistSession=true with custom sessionStorage implementation
 - **Auth Detection**: detectSessionInUrl=true for OAuth callbacks
+- **Auto Refresh**: Disabled (autoRefreshToken=false)
 
 ### Active Supabase Features
-- **Authentication**: Google OAuth + Magic Link (`src/fn-landing.js:204-263`)
-- **Session Management**: Memory-only via sessionStorage (`web/supabaseClient.js:14-30`)
-- **Whitelist Validation**: Client-side email checking (`src/fn-app.js:147`)
 
-### Database Read/Write Operations
-**Currently Active:**
-- None - All data is static/sample data
+#### Authentication System
+- **Google OAuth**: Full implementation (`src/fn-landing.js:204-263`)
+- **Magic Link**: Email-based auth (`src/fn-landing.js:179-203`)
+- **Session Management**: sessionStorage-based persistence (`web/supabaseClient.js:14-30`)
+- **Whitelist Validation**: Client-side email checking (`src/fn-app.js:147-161`)
 
-**Potential DB Operations (Referenced but Not Implemented):**
-- **Feed Posts**: `src/fn-home.js:520-525` - TODO comment for Supabase submission
-- **Birthday Management**: `src/fn-card-birthday.js:212-215` - TODO for birthday creation
-- **Event Management**: `src/fn-card-events.js:222-225` - TODO for event creation  
-- **Goal Contributions**: `src/fn-card-goal.js:327-330` - TODO for goal updates
+#### Database Read Operations (Active)
+- **User Profile**: `supabase.from('me').select('*')` (`src/fn-home.js:1216-1217`)
+- **Posts Loading**: `supabase.from('posts').select()` with profile joins (`src/fn-home.js:1243-1260`)
+- **Events Loading**: `supabase.from('events').select()` with owner details (`src/fn-home.js:1277-1295`)
+- **Birthdays Loading**: `supabase.from('profiles').select('full_name, dob')` (`src/fn-home.js:1312-1330`)
+- **Acts Loading**: `supabase.from('acts').select()` with user joins (`src/fn-home.js:1583-1599`)
 
-### Data Sources
-- **Birthdays**: Hardcoded sample data (`src/cards/birthdays.js:7-12`)
-- **Events**: Hardcoded sample data (`src/fn-card-events.js:151-173`)
-- **Goals**: Hardcoded sample data (`src/fn-card-goal.js:263-278`)
-- **Tips**: Hardcoded sample data (`src/fn-card-tip.js:131-152`)
+#### Database Write Operations (Active)
+- **Post Creation**: `supabase.from('posts').insert()` (`src/fn-home.js:1440-1459`)
+- **Event Creation**: `supabase.from('events').insert()` (`src/fn-home.js:1475-1502`)
+- **Event Updates**: `supabase.from('events').update()` (`src/fn-home.js:1512-1542`)
+- **Event Deletion**: `supabase.from('events').delete()` (`src/fn-home.js:1551-1568`)
+- **Acts Creation**: `supabase.from('acts').insert()` (`src/fn-home.js:1667-1693`)
+
+### Mixed Data Sources
+- **Events**: Live Supabase data with full CRUD (`src/fn-home.js:1277+`)
+- **Posts**: Live Supabase data for creation/display (`src/fn-home.js:1243+`)
+- **Acts/Goals**: Live Supabase data for tracking (`src/fn-home.js:1583+`)
+- **Birthdays**: **Mixed** - Loads from Supabase but card uses hardcoded sample (`src/cards/birthdays.js:7-12`)
+- **Tips**: **Hardcoded** sample data only (`src/fn-card-tip.js:131-152`)
 
 ### Silent Failures & Mismatches
-- **No Error**: Missing table queries would succeed silently (no DB calls made)
-- **Schema Alignment**: Frontend expects profiles/events/posts but only uses auth currently
+- **Profile Loading**: Graceful fallback if user profile not found (`src/fn-home.js:1225`)
+- **Data Loading States**: Proper loading indicators and error handling throughout
+- **Birthday Card**: Uses sample data despite backend integration available
+- **Schema Alignment**: Frontend matches backend schema (families, profiles, events, posts, acts)
 
-**Evidence**: Supabase config at `web/supabaseClient.js:11-34`, TODO comments throughout card components
+### TODO Database Operations (Referenced but Not Implemented)
+- **Birthday CRUD**: `src/fn-card-birthday.js:199` - Add birthday form
+- **Goal Management**: `src/fn-card-goal.js:324,332` - Goal contribution and full view
+- **Tip Management**: Static tips, no backend integration
+
+**Evidence**: Supabase config at `web/supabaseClient.js:11-34`, database operations throughout `src/fn-home.js:1216+`, sample data in `src/cards/birthdays.js:7-12`
 
 ---
 
 ## 7. AUTH FLOWS & SESSION HANDLING
 
-### Configured Auth Methods
-- **Google OAuth** (`src/fn-landing.js:204-226`)
-  - Redirect URL: Environment-aware (`src/fn-landing.js:12-20`)
-  - Success: Auto-redirect to dashboard
-- **Magic Link** (`src/fn-landing.js:231-263`)  
-  - Email validation + Supabase OTP
-  - Success: Confirmation message + email check
+### OAuth Configuration
+- **Google OAuth**: Configured and functional (`src/fn-landing.js:204-240`)
+  - OAuth error handling with URL parameter detection (`src/fn-app.js:115-127`)
+  - Redirect URL detection and session establishment
+  - Proper error messages for OAuth failures
 
-### Session Handling
-- **Storage**: sessionStorage (not localStorage) for tab-only persistence
-- **Auto-refresh**: Disabled (`web/supabaseClient.js:32`)
-- **URL Cleanup**: OAuth hash removal after success (`src/fn-app.js:166-169`)
-- **Whitelist Enforcement**: Client-side check + auto-signout (`src/fn-app.js:147-161`)
+- **Magic Link**: Email-based authentication (`src/fn-landing.js:179-203`)
+  - Email input validation and submission
+  - Success messaging and user guidance
+  - Integration with Supabase auth.signInWithOtp
 
-### RLS Policy Implications
-- **User Isolation**: Row-level security by family_id
-- **Admin Privileges**: Role-based management capabilities
-- **Profile Creation**: Requires manual seed data insertion (commented in schema)
+### Session Management
+- **Storage Strategy**: sessionStorage (not localStorage) (`web/supabaseClient.js:14-30`)
+  - Custom storage wrapper for Supabase client
+  - Session persists within browser tab only
+  - Lost on tab close/browser restart (by design)
 
-**Evidence**: Auth implementation in `src/fn-landing.js:204-263`, session config in `web/supabaseClient.js:11-34`, RLS policies in `db/schema.sql:118-227`
+- **Session Detection**: Automatic on app initialization (`src/fn-app.js:138-145`)
+  - OAuth callback URL parsing
+  - Session restoration from storage
+  - Auth state change listeners
+
+- **Session Validation**: Email whitelist enforcement (`src/fn-app.js:147-161`)
+  - Checks against WHITELISTED_EMAILS array (`web/env.js:8`)
+  - Auto-signout for non-whitelisted users
+  - Friendly error messaging for rejected users
+
+### Auth State Management
+- **Loading States**: Proper loading indicators during auth (`src/fn-app.js:24-44`)
+- **Error Handling**: OAuth errors, session failures, network issues
+- **Route Protection**: Session-based routing between landing and home views
+- **Automatic Refresh**: Disabled (autoRefreshToken=false) for security
+
+### RLS (Row Level Security) Implications
+- **Client-side Security**: Email whitelist as first gate (`src/fn-app.js:147-161`)
+- **Backend Security**: Full RLS policies in database (`db/schema.sql:131-199`)
+  - Family-scoped data access only
+  - User can update own profile
+  - Admin role can manage family members
+  - All tables have appropriate RLS policies
+
+### Security Configuration
+- **Anon Key**: Public by design, security via RLS (`web/env.js:7`)
+- **Session Scope**: Browser tab only (sessionStorage)
+- **No Secrets**: All client-side keys are intended to be public
+- **Environment**: Generated from .env.local, committed as env.js
+
+**Evidence**: Auth flows in `src/fn-landing.js:179-240`, session handling in `src/fn-app.js:89-161`, RLS policies in `db/schema.sql:131-199`, environment config in `web/env.js`
 
 ---
 
 ## 8. API & SCHEMA TOUCHPOINTS
 
-### Database Tables (Defined but Unused)
-- **families** (`db/schema.sql:44`) - Family grouping, referenced in all policies
-- **profiles** (`db/schema.sql:51`) - User metadata with family_id + role
-- **events** (`db/schema.sql:64`) - Family calendar items
-- **posts** (`db/schema.sql:76`) - Family feed content  
-- **acts** (`db/schema.sql:86`) - Activity/achievement tracking
-- **feedback** (`db/schema.sql:97`) - Family feedback/surveys
-- **notes** (`db/schema.sql:106`) - Family notes with checklists
+### Database Tables (Schema Defined)
+- **families** (`db/schema.sql:44-48`) - Family grouping with name and created_at
+- **profiles** (`db/schema.sql:51-59`) - User metadata with family_id, role, DOB, avatar
+- **events** (`db/schema.sql:64-74`) - Calendar events with location, timing, metadata
+- **posts** (`db/schema.sql:76-84`) - Family feed content with visibility controls
+- **acts** (`db/schema.sql:86-95`) - Activity tracking (gentle actions, points, metadata)
+- **feedback** (`db/schema.sql:97-104`) - Family feedback surveys and responses
+- **notes** (`db/schema.sql:106-113`) - Family notes with checklist functionality
 
-### Views & Functions
-- **public.me** (`db/schema.sql:127`) - Current user profile helper
-- **member_role enum** (`db/schema.sql:39`) - admin/member roles
+### Custom Types & Views
+- **member_role enum** (`db/schema.sql:39`) - 'admin' | 'member' role definitions
+- **public.me view** (`db/schema.sql:127-129`) - Current user profile helper view
 
-### RLS Policies (17 total)
-- **Family Isolation**: All tables filtered by user's family_id
-- **Role-based Access**: Admin policies for management operations
-- **Owner Permissions**: Users can manage their own content
+### RLS Policies (Active)
+- **profiles policies** (`db/schema.sql:131-149`) - Family-scoped read/write + admin management
+- **events policies** (`db/schema.sql:151-169`) - Family events with owner permissions
+- **posts policies** (`db/schema.sql:171-189`) - Family posts with visibility controls
+- **acts policies** (`db/schema.sql:191-199`) - Family activity tracking
+- **Similar patterns** for feedback and notes tables
+
+### Frontend Database Usage
+#### Active Supabase Calls
+- **Profile Loading**: `supabase.from('me').select('*')` (`src/fn-home.js:1216`)
+- **Posts CRUD**: Create/read operations (`src/fn-home.js:1243, 1440`)
+- **Events CRUD**: Full CRUD implementation (`src/fn-home.js:1277, 1475, 1512, 1551`)
+- **Acts Tracking**: Create/read for goal progress (`src/fn-home.js:1583, 1667`)
+- **Birthdays**: Profile DOB queries (`src/fn-home.js:1312`)
+
+#### Column References
+- **family_id**: Used throughout for data scoping
+- **user_id/owner_id**: Referenced for ownership checks
+- **meta jsonb**: Flexible metadata storage for acts/events
+- **created_at/starts_at**: Timestamp handling with timezone support
 
 ### Storage Buckets
-- None referenced in current codebase
+- **None currently used** - No file upload functionality implemented
 
-### Code References to Schema
-- **Profile Fields**: `src/fn-page-title.js:178-184` references user_metadata
-- **Expected Columns**: Tests reference family_id, user_id patterns
-- **Schema Validation**: `scripts/verify-schema.sql:34-81` defines expected structure
+### Schema Validation Scripts
+- **verify-schema.sql** (`scripts/verify-schema.sql`) - Table existence and structure checks
+- **verify-rls.sql** (`scripts/verify-rls.sql`) - Policy validation queries
 
-**Evidence**: Complete schema in `db/schema.sql`, policy verification in `scripts/verify-rls.sql:22-41`
+### Code-Schema Mismatches
+- **None identified** - Frontend expectations align with backend schema
+- **Birthday Card**: Uses sample data despite schema supporting live birthdays
+- **Tips**: No backend integration, purely client-side hardcoded content
+
+**Evidence**: Complete schema in `db/schema.sql:39-227`, active database calls in `src/fn-home.js:1216+`, validation scripts in `scripts/verify-*.sql`
 
 ---
 
 ## 9. KNOWN ISSUES
 
-### Broken Links
-- **Navigation Placeholders** (`src/fn-home.js:602-636`)
-  - File: All nav items except "Nest" have href="#" with no click handlers
-  - Impact: P2 - Users expect navigation functionality
+### Broken Functionality (Reproducible Evidence)
+#### Test Infrastructure Failure
+- **Location**: `package.json:13` and `npm test` command
+- **Issue**: jsdom dependency exists but fails to load (`ERR_MODULE_NOT_FOUND`)
+- **Impact**: P1 - No automated testing possible
+- **Evidence**: Running `npm test` results in module resolution error
 
-### Failing DB Calls  
-- **None Currently** - No live database calls implemented
-- **Future Risk**: Sample data will need replacement with Supabase queries
+#### Tablet Layout Regression
+- **Location**: `src/fn-home.js:51-62` responsive breakpoint logic
+- **Issue**: Cards disappear completely on tablet (768-1023px) viewport
+- **Root Cause**: `showInlineCards` includes tablets but sidebar is hidden
+- **Impact**: P0 - Major feature loss for tablet users
+- **Evidence**: CSS `@media (max-width: 1023px)` hides sidebar, no alternative display
 
-### Unused Code
-- **Empty cards/ Directory**: Referenced in docs but contains no files
-- **Test Infrastructure**: Tests exist but not integrated into CI/CD
-- **Quick Actions Callback**: `src/cards/nest-cards.js:56-57` unused parameters
+#### Mobile Navigation Gap
+- **Location**: `src/fn-home.js:2199-2204` sign-out implementation
+- **Issue**: Sign-out button only in desktop navigation, inaccessible on mobile
+- **Impact**: P2 - Mobile users cannot sign out without closing tab
+- **Evidence**: Sign-out only in desktop nav, not in mobile bottom tabs
 
-### UI/UX Issues
-- **Tablet Card Disappearance** (`src/fn-home.js:45-47`)
-  - File: Cards hidden on tablet, no alternative display
-  - Impact: P1 - Major feature loss in tablet view
-  
-- **Mobile Sign-out Missing** (`src/fn-home.js:637-644`)
-  - File: Sign-out only in desktop nav, hidden on mobile
-  - Impact: P2 - Users cannot sign out on mobile
+### Incomplete Implementations (TODOs)
+#### Card Component Placeholders
+- **Birthday Management**: `src/fn-card-birthday.js:199` - "TODO: Open birthday creation modal/form"
+- **Goal Contributions**: `src/fn-card-goal.js:324,332` - "TODO: Open contribution modal/form" and "TODO: Open full goal view"
+- **Event Adding**: `src/fn-card-events.js:223` - "TODO: Open event creation modal/form"
 
-### Console Errors (Potential)
-- **Missing Component Registration**: If card components fail to load
-- **Auth State Race Conditions**: Session checks before component hydration
+#### Route Implementations
+- **Chores View**: `src/fn-home.js:renderChoresView()` - Shows placeholder content only
+- **Notes View**: `src/fn-home.js:renderNotesView()` - Shows placeholder content only
+- **Profile View**: `src/fn-home.js:renderProfileView()` - Shows placeholder content only
+- **Insights View**: `src/fn-home.js:renderInsightsView()` - Shows placeholder content only
 
-**Evidence**: href="#" links in `src/fn-home.js:602-636`, sidebar visibility rules in `src/fn-home.js:45-47`
+### Data Source Inconsistencies
+#### Mixed Sample/Live Data
+- **Birthdays**: Backend integration exists (`src/fn-home.js:1312`) but card uses hardcoded sample data (`src/cards/birthdays.js:7-12`)
+- **Tips**: No backend integration, purely hardcoded content (`src/fn-card-tip.js:131-152`)
+- **Events**: Fully integrated with live Supabase data
+- **Posts**: Fully integrated with live Supabase data
+
+### Performance & UX Issues
+#### Loading States
+- **Missing Indicators**: Some data operations lack loading states
+- **Race Conditions**: Potential auth state race conditions during initialization
+
+#### Error Handling
+- **Silent Failures**: Some database operations may fail silently without user feedback
+- **Console Logging**: Production-level logging still using console.error statements
+
+### Code Quality Issues
+#### Unused Code
+- **Empty Directory**: `/cards/` referenced in documentation but doesn't exist
+- **Unused Parameters**: `src/cards/nest-cards.js:56-57` callback parameters not utilized
+- **Dead Code**: Test infrastructure exists but not integrated with CI/CD
+
+**Evidence**: Error outputs from `npm test`, responsive CSS logic in `src/fn-home.js:51-100`, TODO comments throughout codebase, data loading patterns in component files
 
 ---
 
 ## 10. PRIORITIZED NEXT ACTIONS
 
 ### P0 (Critical - User Blocking)
-- [ ] **Fix Tablet Layout Regression**
-  - File: `src/fn-home.js:45-47`
-  - Action: Show cards inline on tablet like mobile
+- **[URGENT] Fix Tablet Layout Regression**
+  - File: `src/fn-home.js:51-62`
+  - Issue: Cards disappear completely on tablets (768-1023px)
+  - Fix: Modify `showInlineCards` logic to include tablets or add tablet-specific card display
   - Owner: Frontend Developer
   - Effort: 2 hours
+  - Impact: Restores core functionality for tablet users
 
-- [ ] **Enable Mobile Sign-out**  
-  - File: `src/fn-home.js:637-644`
-  - Action: Add sign-out to mobile bottom nav
-  - Owner: Frontend Developer  
+- **[URGENT] Fix Test Infrastructure**
+  - File: `package.json:13` and test dependencies
+  - Issue: `npm test` fails with jsdom module resolution error
+  - Fix: Ensure jsdom is properly installed or update test runner configuration
+  - Owner: DevOps Engineer
   - Effort: 1 hour
+  - Impact: Enables automated testing and CI/CD
 
 ### P1 (High Priority - Core Features)
-- [ ] **Implement Feed Functionality**
-  - Files: `src/fn-home.js:520-525`, database posts table
-  - Action: Connect composer to Supabase posts table
+- **Implement Mobile Sign-out**
+  - File: `src/fn-home.js:2199-2204` and mobile navigation
+  - Issue: No sign-out access on mobile devices
+  - Fix: Add sign-out option to mobile bottom navigation
+  - Owner: Frontend Developer
+  - Effort: 2 hours
+  - Impact: Critical UX improvement for mobile users
+
+- **Complete Route Implementations**
+  - Files: `src/fn-home.js` render methods for chores, notes, profile, insights
+  - Issue: 4 routes show placeholder content only
+  - Fix: Implement basic functionality or remove from navigation
+  - Owner: Full-stack Developer
+  - Effort: 2-3 days per route
+  - Impact: Delivers promised navigation functionality
+
+- **Standardize Data Sources**
+  - Files: `src/cards/birthdays.js:7-12`, `src/fn-card-tip.js:131-152`
+  - Issue: Mixed sample/live data creates inconsistent UX
+  - Fix: Either connect to backend or clearly mark as sample content
   - Owner: Full-stack Developer
   - Effort: 1 day
-
-- [ ] **Add Navigation Routes**
-  - File: `src/fn-home.js:602-636`
-  - Action: Implement router or replace with functional links
-  - Owner: Frontend Developer
-  - Effort: 2 days
-
-- [ ] **Connect Real Birthday Data**
-  - Files: `src/fn-card-birthday.js:212-215`, `src/cards/birthdays.js:7-12`
-  - Action: Replace sample data with Supabase profiles table
-  - Owner: Full-stack Developer
-  - Effort: 4 hours
+  - Impact: Consistent data experience across app
 
 ### P2 (Medium Priority - Enhanced UX)
-- [ ] **Add Event Management**
-  - File: `src/fn-card-events.js:222-225`
-  - Action: Implement event CRUD operations
+- **Add Card Component Modals**
+  - Files: Birthday, goal, event card TODOs (`src/fn-card-*.js`)
+  - Issue: Card interactions are logged only, no user feedback
+  - Fix: Implement modal dialogs for add/edit operations
+  - Owner: Frontend Developer
+  - Effort: 4-6 hours per card
+  - Impact: Complete user interaction flows
+
+- **Improve Error Handling**
+  - Files: Throughout codebase, particularly auth and data operations
+  - Issue: Silent failures and console-only error logging
+  - Fix: Add user-facing error messages and retry mechanisms
   - Owner: Full-stack Developer
   - Effort: 1 day
+  - Impact: Better user experience during failures
 
-- [ ] **Implement Goal Tracking**
-  - File: `src/fn-card-goal.js:327-330` 
-  - Action: Connect to acts table for progress tracking
-  - Owner: Full-stack Developer
-  - Effort: 6 hours
+- **Add Loading States**
+  - Files: Data loading operations throughout `src/fn-home.js`
+  - Issue: Users don't see feedback during data operations
+  - Fix: Implement skeleton loaders and progress indicators
+  - Owner: Frontend Developer
+  - Effort: 4 hours
+  - Impact: Perceived performance improvement
 
-- [ ] **Add Test Runner Integration**
-  - Files: `src/ui-contract-test.js`, `src/cards/birthdays-test.js`
-  - Action: Integrate with GitHub Actions CI
-  - Owner: DevOps Engineer
-  - Effort: 3 hours
+### Quick Wins (< 2 hours each)
+- **Clean Documentation References**
+  - Remove references to non-existent `/cards/` directory
+  - Update AGENTS.md and README.md for accuracy
+  - Effort: 30 minutes
 
-### Quick Wins (< 1 hour each)
-- [ ] **Remove unused cards/ directory** - Clean up docs references
-- [ ] **Add loading states** - Enhance UX during auth transitions  
-- [ ] **Improve error messages** - User-friendly auth error handling
-- [ ] **Add keyboard navigation** - Improve accessibility compliance
-- [ ] **Update placeholder text** - Replace lorem ipsum with helpful content
+- **Integrate Existing Tests**
+  - Add test commands to GitHub Actions CI workflow
+  - Ensure tests run automatically on PRs
+  - Effort: 1 hour
 
-**Evidence**: TODO comments throughout codebase, feature gaps identified in component analysis, effort estimates based on code complexity
+- **Improve Placeholder Content**
+  - Replace generic "coming soon" with helpful feature descriptions
+  - Add mockups or wireframes for planned features
+  - Effort: 1 hour
+
+- **Add Keyboard Navigation**
+  - Implement arrow key navigation for sidebar cards
+  - Add escape key handling for expanded navigation
+  - Effort: 2 hours
+
+- **Environment Documentation**
+  - Document required .env.local variables
+  - Add setup instructions for new developers
+  - Effort: 30 minutes
+
+### Technical Debt (Future Releases)
+- **Refactor Component Sizing Logic**
+  - Consolidate responsive breakpoint handling
+  - Create reusable layout utilities
+  - Effort: 1 day
+
+- **Add Component Testing**
+  - Unit tests for individual card components
+  - Integration tests for navigation flows
+  - Effort: 2-3 days
+
+- **Performance Optimization**
+  - Lazy load card components
+  - Implement virtual scrolling for large data sets
+  - Effort: 1-2 days
+
+**Evidence**: Issues identified through code analysis, TODO comments, error reproduction, and UX testing across device sizes
 
 ---
 
 ## SUMMARY
 
-FamilyNest is a well-architected, security-conscious family hub application with a solid foundation but several implementation gaps. The zero-build CDN approach and comprehensive RLS policies demonstrate thoughtful technical decisions. The main priorities are fixing the tablet layout regression (P0) and implementing core data connectivity (P1) to move from prototype to functional family application.
+FamilyNest is a well-architected family hub application with a solid technical foundation but critical implementation gaps that prevent optimal user experience. The zero-build CDN approach, comprehensive RLS policies, and thoughtful component structure demonstrate strong technical decisions. However, tablet layout regressions and incomplete feature implementations require immediate attention.
 
-**Overall Health**: 🟡 Good Foundation, Implementation Incomplete  
-**Security Posture**: 🟢 Excellent (RLS + Whitelist + Memory-only sessions)  
-**User Experience**: 🟡 Responsive design present, key features missing  
-**Developer Experience**: 🟢 Clean code structure, good documentation
+### Key Strengths
+- **Security First**: Comprehensive RLS policies + email whitelist + memory-only sessions
+- **Modern Architecture**: Lit 3 web components with clean separation of concerns
+- **Responsive Design**: Mobile-first approach with desktop enhancement
+- **Data Integration**: Active Supabase integration for core features (events, posts, acts)
+- **Documentation**: Comprehensive QA procedures and development guidelines
+
+### Critical Weaknesses
+- **Tablet Experience**: Complete feature loss on tablet devices (P0 issue)
+- **Test Infrastructure**: Broken automated testing preventing quality assurance
+- **Feature Inconsistency**: Mixed sample/live data creates confusing user experience
+- **Mobile Limitations**: No sign-out capability on mobile devices
+
+### Development Maturity
+- **Backend Integration**: 70% complete (auth, events, posts functional)
+- **Frontend Components**: 80% complete (responsive design, component structure)
+- **User Experience**: 60% complete (tablet regression, missing modals)
+- **Testing & CI/CD**: 30% complete (tests exist but not functional)
+
+### Recommended Focus Areas
+1. **Immediate**: Fix P0 tablet layout and test infrastructure (1-2 days)
+2. **Short-term**: Complete navigation routes and standardize data sources (1-2 weeks)
+3. **Medium-term**: Add component modals and comprehensive error handling (2-4 weeks)
+
+**Overall Health**: 🟡 Good Foundation, Critical Issues Need Resolution  
+**Security Posture**: 🟢 Excellent (RLS + Whitelist + Secure Sessions)  
+**User Experience**: 🔴 Broken on Tablets, Good on Desktop/Mobile  
+**Developer Experience**: 🟢 Clean Architecture, Good Documentation  
+**Production Readiness**: 🟡 Close, But P0 Issues Must Be Fixed First
+
+**Assessment Date**: December 30, 2024  
+**Reviewer**: AI System Analysis  
+**Next Review**: After P0 issues resolution (estimated 1 week)
