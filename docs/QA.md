@@ -69,25 +69,26 @@
   - [ ] All cards display sample data properly
 
 ### Tablet (768-1023px)
-- [ ] **Navigation**
-  - [ ] Navigation becomes icon rail (60px width)
-  - [ ] Hover/click doesn't expand navigation text
+- [x] **Navigation** 
+  - [x] Navigation becomes icon rail (60px width)
+  - [x] Hover/click doesn't expand navigation text
 
-- [ ] **Layout**
-  - [ ] Main content takes remaining width
-  - [ ] Right sidebar is hidden
-  - [ ] Cards are not visible in tablet view
+- [x] **Layout**
+  - [x] Main content takes remaining width
+  - [x] Right sidebar is hidden
+  - [x] Cards are now visible in tablet view (FIXED - showing inline like mobile)
 
 ### Mobile (≤767px)
-- [ ] **Single Column Layout**
-  - [ ] Main content takes full width
-  - [ ] Navigation becomes bottom tab bar
-  - [ ] Tab bar is 60px height with icons and labels
+- [x] **Single Column Layout**
+  - [x] Main content takes full width
+  - [x] Navigation becomes bottom tab bar
+  - [x] Tab bar is 60px height with icons and labels
 
-- [ ] **Mobile-Specific Features**
-  - [ ] Cards appear above feed in main content area
-  - [ ] Floating + button appears in bottom right
-  - [ ] Bottom navigation has all main items
+- [x] **Mobile-Specific Features**
+  - [x] Cards appear above feed in main content area
+  - [x] Floating + button appears in bottom right
+  - [x] Bottom navigation has all main items
+  - [x] Sign-out button now available in mobile navigation (FIXED)
 
 - [ ] **Bottom Tab Navigation**
   - [ ] All navigation items present with Iconify icons
@@ -182,6 +183,54 @@
   - [ ] All images have appropriate alt text
   - [ ] Iconify icons don't interfere with screen readers
   - [ ] Form inputs have associated labels
+
+## New Features (December 2024)
+
+### Hash-Based Router
+- [x] **Navigation Routes**
+  - [x] Nest (default) - shows cards and composer
+  - [x] Feed - dedicated feed view with posts
+  - [x] Chores - placeholder view
+  - [x] Events - event management with creation form
+  - [x] Notes - placeholder view  
+  - [x] Profile - placeholder view
+  - [x] Insights - placeholder view
+
+- [x] **Route Features**
+  - [x] URL hash updates when navigating (e.g., #feed, #events)
+  - [x] aria-current="page" indicates active route
+  - [x] Real navigation links (no more href="#" placeholders)
+  - [x] Back/forward browser navigation works
+
+### Supabase Integration
+- [x] **User Profile**
+  - [x] Loads current user via public.me view
+  - [x] Respects family_id for RLS filtering
+  - [x] Handles family membership properly
+
+- [x] **Feed Posts** 
+  - [x] Create posts via composer (family scoped)
+  - [x] Display posts with author names and timestamps
+  - [x] Posts persist and display after page refresh
+  - [x] Proper RLS filtering by family_id
+
+- [x] **Events Management**
+  - [x] Create events with title, date, and optional location
+  - [x] Display upcoming events sorted by date
+  - [x] Event creation form with validation
+  - [x] Events scoped to user's family
+
+- [x] **Birthdays**
+  - [x] Load birthdays from profiles table
+  - [x] Calculate upcoming birthdays with age/countdown
+  - [x] Replace hardcoded sample data with real data
+  - [x] Proper date calculations and formatting
+
+- [x] **Goals & Acts**
+  - [x] Track family acts (kindness, gentle actions)
+  - [x] Generate monthly goals based on acts
+  - [x] Progress tracking with points system
+  - [x] Completing gentle action creates act record
 
 ## Performance and Technical
 
