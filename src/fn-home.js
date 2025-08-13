@@ -13,7 +13,8 @@ export class FnHome extends LitElement {
     navExpanded: { type: Boolean },
     completedAction: { type: Boolean },
     feedText: { type: String },
-    isMobile: { type: Boolean }
+    isMobile: { type: Boolean },
+    showInlineCards: { type: Boolean }
   };
 
   static styles = css`
@@ -414,13 +415,24 @@ export class FnHome extends LitElement {
       gap: 16px;
     }
     
-    /* Mobile Adjustments */
+    /* Mobile & Tablet Inline Cards */
+    .mobile-cards {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    
+    /* Tablet: 2 column grid when space allows */
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .mobile-cards {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+    }
+    
+    /* Mobile: single column */
     @media (max-width: 767px) {
       .mobile-cards {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        margin-bottom: 32px;
+        grid-template-columns: 1fr;
       }
       
       .floating-add {
@@ -447,10 +459,12 @@ export class FnHome extends LitElement {
     this.completedAction = false;
     this.feedText = '';
     this.isMobile = window.innerWidth <= 767;
+    this.showInlineCards = window.innerWidth <= 1023; // Include tablet for inline cards
     
     // Listen for window resize
     window.addEventListener('resize', () => {
       this.isMobile = window.innerWidth <= 767;
+      this.showInlineCards = window.innerWidth <= 1023;
     });
   }
 
@@ -634,14 +648,12 @@ export class FnHome extends LitElement {
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Insights</span>
               </a>
             </li>
-            ${!this.isMobile ? html`
-              <li class="nav-item">
-                <a href="#" class="nav-link" @click=${this.handleSignOut}>
-                  <iconify-icon icon="material-symbols:logout"></iconify-icon>
-                  <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Sign Out</span>
-                </a>
-              </li>
-            ` : ''}
+            <li class="nav-item">
+              <a href="#" class="nav-link" @click=${this.handleSignOut}>
+                <iconify-icon icon="material-symbols:logout"></iconify-icon>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Sign Out</span>
+              </a>
+            </li>
           </ul>
         </nav>
 
@@ -650,8 +662,8 @@ export class FnHome extends LitElement {
           <!-- Page Title -->
           <fn-page-title></fn-page-title>
 
-          <!-- Mobile Cards (shown above feed on mobile) -->
-          ${this.isMobile ? html`
+          <!-- Mobile/Tablet Cards (shown above feed when no sidebar) -->
+          ${this.showInlineCards ? html`
             <div class="mobile-cards">
               ${this.renderCards(false)}
             </div>
@@ -688,7 +700,7 @@ export class FnHome extends LitElement {
         </main>
 
         <!-- Sidebar (Desktop only) -->
-        ${!this.isMobile ? html`
+        ${!this.showInlineCards ? html`
           <aside class="sidebar sticky-col" role="complementary" aria-label="Family updates">
             <h2 class="sidebar-title">Family Updates</h2>
             <div class="sidebar-cards">
