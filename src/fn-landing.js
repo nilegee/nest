@@ -196,7 +196,7 @@ export class FnLanding extends LitElement {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: 'https://nilegee.github.io/nest/'
         }
       });
       
@@ -227,7 +227,7 @@ export class FnLanding extends LitElement {
       const { error } = await supabase.auth.signInWithOtp({
         email: this.email.trim(),
         options: {
-          emailRedirectTo: window.location.origin
+          emailRedirectTo: 'https://nilegee.github.io/nest/'
         }
       });
       

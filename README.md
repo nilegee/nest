@@ -68,7 +68,7 @@ Configure your Supabase project's OAuth settings:
 1. Go to Authentication → Settings in your Supabase dashboard
 2. Add your redirect URL:
    - Development: `http://localhost:3000`
-   - Production: `https://your-domain.com`
+   - Production: `https://nilegee.github.io/nest/`
 
 ### Email Whitelist
 
@@ -201,7 +201,7 @@ Perfect for static hosting platforms:
 Remember to:
 1. Set up production environment variables
 2. Run `node scripts/sync-env.mjs` to generate `web/env.js`
-3. Configure OAuth redirect URLs for production domain
+3. Configure OAuth redirect URLs for GitHub Pages (https://nilegee.github.io/nest/)
 4. Test authentication flow with production URLs
 
 ### Example Deployment (Netlify)
