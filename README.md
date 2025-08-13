@@ -2,6 +2,37 @@
 
 **TL;DR**: Zero‑build private family hub with Landing (public login) and Home/Nest (private dashboard). Lit + Iconify + Supabase, hosted on GitHub Pages, email whitelist + strict RLS.
 
+## ⚠️ DANGER: Manual Database Reset
+
+This project includes a manual GitHub Action that **DESTROYS ALL PUBLIC DATA** and recreates the database from `db/schema.sql`.
+
+### How to run safely
+
+1. **Set repository secrets:**
+   - `DATABASE_URL` → full Postgres URL from Supabase
+   - `CONFIRM_DB_RESET` → set to `TRUE`
+
+2. **Go to Actions → Manual DB Reset (Danger) → Run workflow**
+
+3. **Enter `ERASE_AND_APPLY` in the confirm field and run.**
+
+The workflow:
+- Backs up the current DB with `pg_dump` (artifact)
+- Applies `db/schema.sql`
+- Verifies RLS and schema (fails on drift)
+
+### Local apply (alternative)
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-rls.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-schema.sql
+```
+
+### Seeding
+
+Seed statements remain commented because they require real `auth.users` UUIDs.
+
 ## Purpose
 
 Private family hub with two views:

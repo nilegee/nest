@@ -1,3 +1,38 @@
+-- ============================================
+-- WARNING: This will delete ALL current tables,
+--          data, views, types, and policies!
+-- ============================================
+
+-- 1. Drop policies
+do $$
+declare
+  pol record;
+begin
+  for pol in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+  loop
+    execute format('drop policy if exists %I on %I.%I cascade',
+      pol.policyname, pol.schemaname, pol.tablename);
+  end loop;
+end$$;
+
+-- 2. Drop views
+drop view if exists public.me cascade;
+
+-- 3. Drop tables (children first)
+drop table if exists public.notes cascade;
+drop table if exists public.feedback cascade;
+drop table if exists public.acts cascade;
+drop table if exists public.posts cascade;
+drop table if exists public.events cascade;
+drop table if exists public.profiles cascade;
+drop table if exists public.families cascade;
+
+-- 4. Drop custom types
+drop type if exists public.member_role cascade;
+
 -- =========
 -- CORE TYPES
 -- =========
@@ -120,8 +155,6 @@ using (
   id = (select family_id from public.profiles where user_id = auth.uid())
 );
 
--- Generic family-scoped read/write macro policy for tables with family_id and owner/author/user fields:
-
 -- READ: anyone in family can read family-scoped rows (posts obey visibility in app logic)
 create policy "family tables: read family scope"
 on public.events for select
@@ -194,40 +227,10 @@ using (
 );
 
 -- =========
--- SEED: Create one family + admin/member profiles
--- Replace emails/ids as needed; these use auth.users by email.
--- =========
--- Look up auth IDs by email
--- (Run these SELECTs first to copy the UUIDs)
+-- SEED (KEEP COMMENTED; fill real auth.users UUIDs manually after reset)
 -- select id, email from auth.users where email in ('abdessamia.mariem@gmail.com','nilezat@gmail.com','yazidgeemail@gmail.com','yahyageemail@gmail.com');
-
--- Create a family
-insert into public.families (id, name) values
-  (gen_random_uuid(), 'Our Family')
-returning id;
-
--- Suppose returned id is copied into :family_id
--- Now create profiles; replace :family_id and user_id values manually with the UUIDs from auth.users.
-
--- Example placeholders (edit before running):
--- Mariem (ADMIN)
--- insert into public.profiles (user_id, full_name, dob, role, family_id)
--- values ('<UUID_OF_MARIEM>', 'Mariem', '1990-01-30', 'admin', '<family_id>');
-
--- Ghassan (ADMIN)
--- insert into public.profiles (user_id, full_name, dob, role, family_id)
--- values ('<UUID_OF_GHASSAN>', 'Ghassan', '1981-08-31', 'admin', '<family_id>');
-
--- Yazid (MEMBER)
--- insert into public.profiles (user_id, full_name, dob, role, family_id)
--- values ('<UUID_OF_YAZID>', 'Yazid', '2014-03-28', 'member', '<family_id>');
-
--- Yahya (MEMBER)
--- insert into public.profiles (user_id, full_name, dob, role, family_id)
--- values ('<UUID_OF_YAHYA>', 'Yahya', '2017-10-23', 'member', '<family_id>');
-
--- Admin vs. member permissions (summary):
--- 
--- Admins (Ghassan, Mariem): update any profile in the family; create/update/delete any events and notes; delete inappropriate feedback; all standard owner rights.
--- 
--- Members (kids): manage their own posts, notes, acts, feedback; read all family‑scoped content (respecting visibility in the UI).
+-- insert into public.families (id, name) values (gen_random_uuid(), 'Our Family') returning id;
+-- insert into public.profiles (user_id, full_name, dob, role, family_id) values ('<UUID_OF_MARIEM>', 'Mariem', '1990-01-30', 'admin', '<family_id>');
+-- insert into public.profiles (user_id, full_name, dob, role, family_id) values ('<UUID_OF_GHASSAN>', 'Ghassan', '1981-08-31', 'admin', '<family_id>');
+-- insert into public.profiles (user_id, full_name, dob, role, family_id) values ('<UUID_OF_YAZID>', 'Yazid', '2014-03-28', 'member', '<family_id>');
+-- insert into public.profiles (user_id, full_name, dob, role, family_id) values ('<UUID_OF_YAHYA>', 'Yahya', '2017-10-23', 'member', '<family_id>');
