@@ -61,6 +61,19 @@ export class FnHome extends LitElement {
     ${stateStyles}
     ${modalStyles}
     
+    /* Screen reader only content */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    
     .layout {
       display: grid;
       grid-template-columns: 76px 1fr 320px;
@@ -1193,23 +1206,75 @@ export class FnHome extends LitElement {
    * Delete an event with confirmation
    */
   async deleteEvent(event) {
-    const confirmed = confirm(`Are you sure you want to delete "${event.title}"?\n\nThis action cannot be undone.`);
-    
-    if (!confirmed) return;
-    
-    const loadingToast = showLoading('Deleting event...');
-    
-    try {
-      const success = await this.removeEvent(event.id);
-      if (success) {
-        loadingToast.success('Event deleted successfully.');
-      } else {
-        loadingToast.error('Failed to delete event. Please try again.');
-      }
-    } catch (error) {
-      loadingToast.error('An error occurred while deleting the event.');
-      console.error('Event deletion error:', error);
-    }
+    this.confirmModalData = {
+      title: 'Delete Event',
+      message: `Are you sure you want to delete "${event.title}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await dataOps.delete(
+            () => supabase.from('events').delete().eq('id', event.id),
+            this,
+            'events',
+            event.id,
+            {
+              optimistic: true,
+              successMessage: 'Event deleted successfully',
+              errorMessage: 'Failed to delete event'
+            }
+          );
+          this.closeAllModals();
+        } catch (error) {
+          // Error handled by dataOps
+        }
+      },
+      onCancel: () => this.closeAllModals()
+    };
+    this.showConfirmModal = true;
+  }
+
+  /**
+   * Edit an act
+   */
+  editAct(act) {
+    this.actFormData = {
+      id: act.id,
+      description: act.description,
+      points: act.points,
+      kind: act.kind
+    };
+    this.showActModal = true;
+  }
+
+  /**
+   * Delete an act with confirmation
+   */
+  async deleteAct(act) {
+    this.confirmModalData = {
+      title: 'Delete Act',
+      message: `Are you sure you want to delete this act: "${act.description || act.kind}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await dataOps.delete(
+            () => supabase.from('acts').delete().eq('id', act.id),
+            this,
+            'acts',
+            act.id,
+            {
+              optimistic: true,
+              successMessage: 'Act deleted successfully',
+              errorMessage: 'Failed to delete act'
+            }
+          );
+          this.closeAllModals();
+          // Reload goal after act changes
+          this.loadCurrentGoal();
+        } catch (error) {
+          // Error handled by dataOps
+        }
+      },
+      onCancel: () => this.closeAllModals()
+    };
+    this.showConfirmModal = true;
   }
 
   /**
@@ -1910,6 +1975,7 @@ export class FnHome extends LitElement {
    */
   navigateToRoute(route) {
     window.location.hash = route;
+    this.setMainFocus(); // Set focus to main content when route changes
   }
 
   /**
@@ -1918,6 +1984,16 @@ export class FnHome extends LitElement {
   handleNavClick(e, route) {
     e.preventDefault();
     this.navigateToRoute(route);
+  }
+
+  /**
+   * Handle navigation keyboard events
+   */
+  handleNavKeyDown(e, route) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      this.navigateToRoute(route);
+    }
   }
 
   /**
@@ -2118,52 +2194,59 @@ export class FnHome extends LitElement {
 
       <!-- Events List -->
       <div class="events-list">
-        ${this.eventsLoading ? html`
-          <div class="data-panel-loading loading-state">
-            <div class="loading-spinner"></div>
-            <span>Loading events...</span>
-          </div>
-        ` : this.events.length > 0 ? html`
-          ${this.events.map(event => html`
-            <div class="event-card">
-              <div class="event-header">
-                <h4 class="event-title">${event.title}</h4>
-                <div class="event-actions">
-                  <button class="btn-icon" @click=${() => this.editEvent(event)} 
-                          aria-label="Edit event">
-                    <iconify-icon icon="material-symbols:edit"></iconify-icon>
-                  </button>
-                  <button class="btn-icon btn-danger" @click=${() => this.deleteEvent(event)} 
-                          aria-label="Delete event">
-                    <iconify-icon icon="material-symbols:delete"></iconify-icon>
-                  </button>
-                </div>
-              </div>
-              <div class="event-meta">
-                <iconify-icon icon="material-symbols:person"></iconify-icon>
-                <span>${event.owner?.full_name || 'Family Member'}</span>
-              </div>
-              <div class="event-details">
-                <div class="event-date">
-                  <iconify-icon icon="material-symbols:schedule"></iconify-icon>
-                  <span>${this.formatEventDate(event.starts_at)}</span>
-                </div>
-                ${event.location ? html`
-                  <div class="event-location">
-                    <iconify-icon icon="material-symbols:location-on"></iconify-icon>
-                    <span>${event.location}</span>
+        ${this.eventsLoading ? 
+          renderLoading('Loading family events...') :
+          this.eventsError ? 
+          renderError({
+            message: 'Failed to load family events',
+            onRetry: () => this.retryLoadEvents()
+          }) :
+          this.events.length > 0 ? html`
+            ${this.events.map(event => html`
+              <div class="event-card">
+                <div class="event-header">
+                  <h4 class="event-title">${event.title}</h4>
+                  <div class="event-actions">
+                    <button class="btn-icon" @click=${() => this.editEvent(event)} 
+                            aria-label="Edit event">
+                      <iconify-icon icon="material-symbols:edit"></iconify-icon>
+                    </button>
+                    <button class="btn-icon btn-danger" @click=${() => this.deleteEvent(event)} 
+                            aria-label="Delete event">
+                      <iconify-icon icon="material-symbols:delete"></iconify-icon>
+                    </button>
                   </div>
-                ` : ''}
+                </div>
+                <div class="event-meta">
+                  <iconify-icon icon="material-symbols:person"></iconify-icon>
+                  <span>${event.owner?.full_name || 'Family Member'}</span>
+                </div>
+                <div class="event-details">
+                  <div class="event-date">
+                    <iconify-icon icon="material-symbols:schedule"></iconify-icon>
+                    <span>${this.formatEventDate(event.starts_at)}</span>
+                  </div>
+                  ${event.location ? html`
+                    <div class="event-location">
+                      <iconify-icon icon="material-symbols:location-on"></iconify-icon>
+                      <span>${event.location}</span>
+                    </div>
+                  ` : ''}
+                </div>
               </div>
-            </div>
-          `)}
-        ` : html`
-          <div class="empty-state">
-            <iconify-icon icon="material-symbols:event"></iconify-icon>
-            <h3>No upcoming events</h3>
-            <p>Create the first event for your family!</p>
-          </div>
-        `}
+            `)}
+          ` : 
+          renderEmpty({
+            icon: 'material-symbols:event',
+            title: 'No upcoming events',
+            description: 'Create the first event for your family!',
+            actionText: 'Create Event',
+            onAction: () => {
+              const titleInput = this.shadowRoot.querySelector('#event-title');
+              if (titleInput) titleInput.focus();
+            }
+          })
+        }
       </div>
     `;
   }
@@ -2179,31 +2262,38 @@ export class FnHome extends LitElement {
       </div>
       
       <!-- Current Goal Display -->
-      ${this.goalsLoading ? html`
-        <div class="data-panel-loading loading-state">
-          <div class="loading-spinner"></div>
-          <span>Loading goal...</span>
-        </div>
-      ` : this.currentGoal ? html`
-        <div class="goal-card">
-          <div class="goal-header">
-            <h3>${this.currentGoal.title}</h3>
-            <div class="goal-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" style="width: ${Math.min((this.currentGoal.current / this.currentGoal.target) * 100, 100)}%"></div>
+      ${this.goalsLoading ? 
+        renderLoading('Loading family goal...') :
+        this.actsError ? 
+        renderError({
+          message: 'Failed to load family acts',
+          onRetry: () => this.retryLoadActs()
+        }) :
+        this.currentGoal ? html`
+          <div class="goal-card">
+            <div class="goal-header">
+              <h3>${this.currentGoal.title}</h3>
+              <div class="goal-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: ${Math.min((this.currentGoal.current / this.currentGoal.target) * 100, 100)}%"></div>
+                </div>
+                <span class="progress-text">${this.currentGoal.current}/${this.currentGoal.target} ${this.currentGoal.unit}</span>
               </div>
-              <span class="progress-text">${this.currentGoal.current}/${this.currentGoal.target} ${this.currentGoal.unit}</span>
             </div>
+            <p class="goal-description">${this.currentGoal.description}</p>
           </div>
-          <p class="goal-description">${this.currentGoal.description}</p>
-        </div>
-      ` : html`
-        <div class="empty-state">
-          <iconify-icon icon="material-symbols:flag"></iconify-icon>
-          <h3>No active goal</h3>
-          <p>Create your first family goal by logging some acts of kindness below!</p>
-        </div>
-      `}
+        ` : 
+        renderEmpty({
+          icon: 'material-symbols:flag',
+          title: 'No active goal',
+          description: 'Create your first family goal by logging some acts of kindness below!',
+          actionText: 'Log an Act',
+          onAction: () => {
+            const actInput = this.shadowRoot.querySelector('#act-description');
+            if (actInput) actInput.focus();
+          }
+        })
+      }
       
       <!-- Act Creation Form -->
       <div class="creation-form">
@@ -2248,15 +2338,30 @@ export class FnHome extends LitElement {
                   </div>
                   <div class="act-points">+${act.points}</div>
                 </div>
+                <div class="act-actions">
+                  <button class="btn-icon" @click=${() => this.editAct(act)} 
+                          aria-label="Edit act">
+                    <iconify-icon icon="material-symbols:edit"></iconify-icon>
+                  </button>
+                  <button class="btn-icon btn-danger" @click=${() => this.deleteAct(act)} 
+                          aria-label="Delete act">
+                    <iconify-icon icon="material-symbols:delete"></iconify-icon>
+                  </button>
+                </div>
               </div>
             `)}
-          ` : html`
-            <div class="empty-state">
-              <iconify-icon icon="material-symbols:volunteer-activism"></iconify-icon>
-              <h3>No acts recorded yet</h3>
-              <p>Start logging your family's acts of kindness and achievements!</p>
-            </div>
-          `}
+          ` : 
+          renderEmpty({
+            icon: 'material-symbols:volunteer-activism',
+            title: 'No acts recorded yet',
+            description: 'Start logging your family\'s acts of kindness and achievements!',
+            actionText: 'Log First Act',
+            onAction: () => {
+              const actInput = this.shadowRoot.querySelector('#act-description');
+              if (actInput) actInput.focus();
+            }
+          })
+          }
         </div>
       </div>
     `;
@@ -2335,6 +2440,230 @@ export class FnHome extends LitElement {
     `;
   }
 
+  /**
+   * Render birthday modal
+   */
+  renderBirthdayModal() {
+    const fields = [
+      {
+        name: 'full_name',
+        label: 'Full Name',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter full name'
+      },
+      {
+        name: 'dob',
+        label: 'Date of Birth',
+        type: 'date',
+        required: true
+      },
+      {
+        name: 'avatar_url',
+        label: 'Avatar URL',
+        type: 'url',
+        placeholder: 'Optional profile picture URL'
+      }
+    ];
+
+    return renderFormModal({
+      title: this.birthdayFormData.id ? 'Edit Birthday' : 'Add Birthday',
+      fields,
+      data: this.birthdayFormData,
+      onSubmit: (data) => this.handleBirthdaySubmit(data),
+      onCancel: () => this.closeAllModals(),
+      loading: this.loading
+    });
+  }
+
+  /**
+   * Render event modal
+   */
+  renderEventModal() {
+    const fields = [
+      {
+        name: 'title',
+        label: 'Event Title',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter event title'
+      },
+      {
+        name: 'starts_at',
+        label: 'Start Date & Time',
+        type: 'datetime-local',
+        required: true
+      },
+      {
+        name: 'location',
+        label: 'Location',
+        type: 'text',
+        placeholder: 'Optional location'
+      },
+      {
+        name: 'description',
+        label: 'Description',
+        type: 'textarea',
+        placeholder: 'Optional description'
+      }
+    ];
+
+    return renderFormModal({
+      title: this.eventFormData.id ? 'Edit Event' : 'Add Event',
+      fields,
+      data: this.eventFormData,
+      onSubmit: (data) => this.handleEventSubmit(data),
+      onCancel: () => this.closeAllModals(),
+      loading: this.loading
+    });
+  }
+
+  /**
+   * Render act modal
+   */
+  renderActModal() {
+    const fields = [
+      {
+        name: 'description',
+        label: 'What did you do?',
+        type: 'text',
+        required: true,
+        placeholder: 'Describe your act of kindness or achievement'
+      },
+      {
+        name: 'points',
+        label: 'Points',
+        type: 'number',
+        required: true,
+        min: 1,
+        max: 10,
+        defaultValue: '1'
+      },
+      {
+        name: 'kind',
+        label: 'Category',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'kindness', label: 'Act of Kindness' },
+          { value: 'help', label: 'Helping Others' },
+          { value: 'chore', label: 'Completed Chore' },
+          { value: 'learning', label: 'Learning Together' },
+          { value: 'creativity', label: 'Creative Activity' },
+          { value: 'exercise', label: 'Physical Activity' },
+          { value: 'other', label: 'Other' }
+        ]
+      }
+    ];
+
+    return renderFormModal({
+      title: this.actFormData.id ? 'Edit Act' : 'Log Act',
+      fields,
+      data: this.actFormData,
+      onSubmit: (data) => this.handleActSubmit(data),
+      onCancel: () => this.closeAllModals(),
+      loading: this.loading
+    });
+  }
+
+  /**
+   * Handle birthday form submission
+   */
+  async handleBirthdaySubmit(data) {
+    this.loading = true;
+    
+    try {
+      const isEdit = !!this.birthdayFormData.id;
+      
+      if (isEdit) {
+        await dataOps.update(
+          () => supabase.from('profiles').update(data).eq('id', this.birthdayFormData.id),
+          this,
+          'birthdays',
+          this.birthdayFormData.id,
+          data,
+          {
+            successMessage: 'Birthday updated successfully',
+            errorMessage: 'Failed to update birthday'
+          }
+        );
+      } else {
+        // For new birthdays, we need to create or update the profile
+        const profileData = {
+          ...data,
+          family_id: this.userProfile.family_id
+        };
+        
+        await dataOps.create(
+          () => supabase.from('profiles').insert([profileData]),
+          this,
+          'birthdays',
+          profileData,
+          {
+            successMessage: 'Birthday added successfully',
+            errorMessage: 'Failed to add birthday'
+          }
+        );
+      }
+      
+      this.closeAllModals();
+      this.loadBirthdays(); // Reload birthdays
+    } catch (error) {
+      // Error handled by dataOps
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  /**
+   * Handle act form submission
+   */
+  async handleActSubmit(data) {
+    this.loading = true;
+    
+    try {
+      const isEdit = !!this.actFormData.id;
+      
+      if (isEdit) {
+        await dataOps.update(
+          () => supabase.from('acts').update(data).eq('id', this.actFormData.id),
+          this,
+          'acts',
+          this.actFormData.id,
+          data,
+          {
+            successMessage: 'Act updated successfully',
+            errorMessage: 'Failed to update act'
+          }
+        );
+      } else {
+        const actData = {
+          ...data,
+          family_id: this.userProfile.family_id,
+          user_id: this.userProfile.id
+        };
+        
+        await dataOps.create(
+          () => supabase.from('acts').insert([actData]),
+          this,
+          'acts',
+          actData,
+          {
+            successMessage: 'Act logged successfully',
+            errorMessage: 'Failed to log act'
+          }
+        );
+      }
+      
+      this.closeAllModals();
+      this.loadCurrentGoal(); // Reload goal after act changes
+    } catch (error) {
+      // Error handled by dataOps
+    } finally {
+      this.loading = false;
+    }
+  }
+
   render() {
     return html`
       <div class="layout ${this.navExpanded ? 'nav-expanded' : ''}">
@@ -2353,56 +2682,70 @@ export class FnHome extends LitElement {
             <li class="nav-item">
               <a href="#nest" class="nav-link" 
                  @click=${(e) => this.handleNavClick(e, 'nest')}
-                 aria-current=${this.currentRoute === 'nest' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:home"></iconify-icon>
+                 @keydown=${(e) => this.handleNavKeyDown(e, 'nest')}
+                 aria-current=${this.currentRoute === 'nest' ? 'page' : null}
+                 tabindex="0">
+                <iconify-icon icon="material-symbols:home" aria-hidden="true"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Nest</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#feed" class="nav-link" 
                  @click=${(e) => this.handleNavClick(e, 'feed')}
-                 aria-current=${this.currentRoute === 'feed' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
+                 @keydown=${(e) => this.handleNavKeyDown(e, 'feed')}
+                 aria-current=${this.currentRoute === 'feed' ? 'page' : null}
+                 tabindex="0">
+                <iconify-icon icon="material-symbols:dynamic-feed" aria-hidden="true"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Feed</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#chores" class="nav-link" 
                  @click=${(e) => this.handleNavClick(e, 'chores')}
-                 aria-current=${this.currentRoute === 'chores' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:checklist"></iconify-icon>
+                 @keydown=${(e) => this.handleNavKeyDown(e, 'chores')}
+                 aria-current=${this.currentRoute === 'chores' ? 'page' : null}
+                 tabindex="0">
+                <iconify-icon icon="material-symbols:checklist" aria-hidden="true"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Chores</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#events" class="nav-link" 
                  @click=${(e) => this.handleNavClick(e, 'events')}
-                 aria-current=${this.currentRoute === 'events' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:event"></iconify-icon>
+                 @keydown=${(e) => this.handleNavKeyDown(e, 'events')}
+                 aria-current=${this.currentRoute === 'events' ? 'page' : null}
+                 tabindex="0">
+                <iconify-icon icon="material-symbols:event" aria-hidden="true"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Events</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#notes" class="nav-link" 
                  @click=${(e) => this.handleNavClick(e, 'notes')}
-                 aria-current=${this.currentRoute === 'notes' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:note"></iconify-icon>
+                 @keydown=${(e) => this.handleNavKeyDown(e, 'notes')}
+                 aria-current=${this.currentRoute === 'notes' ? 'page' : null}
+                 tabindex="0">
+                <iconify-icon icon="material-symbols:note" aria-hidden="true"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Notes</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#profile" class="nav-link" 
                  @click=${(e) => this.handleNavClick(e, 'profile')}
-                 aria-current=${this.currentRoute === 'profile' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:person"></iconify-icon>
+                 @keydown=${(e) => this.handleNavKeyDown(e, 'profile')}
+                 aria-current=${this.currentRoute === 'profile' ? 'page' : null}
+                 tabindex="0">
+                <iconify-icon icon="material-symbols:person" aria-hidden="true"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Profile</span>
               </a>
             </li>
             <li class="nav-item">
               <a href="#insights" class="nav-link" 
                  @click=${(e) => this.handleNavClick(e, 'insights')}
-                 aria-current=${this.currentRoute === 'insights' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:insights"></iconify-icon>
+                 @keydown=${(e) => this.handleNavKeyDown(e, 'insights')}
+                 aria-current=${this.currentRoute === 'insights' ? 'page' : null}
+                 tabindex="0">
+                <iconify-icon icon="material-symbols:insights" aria-hidden="true"></iconify-icon>
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Insights</span>
               </a>
             </li>
@@ -2442,6 +2785,22 @@ export class FnHome extends LitElement {
       <div class="celebration" style="display: none;">
         🎉✨🎊
       </div>
+
+      <!-- Aria-live region for screen readers -->
+      <div aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+      <!-- Modals -->
+      ${this.showConfirmModal && this.confirmModalData ? renderConfirmModal({
+        title: this.confirmModalData.title,
+        message: this.confirmModalData.message,
+        onConfirm: this.confirmModalData.onConfirm,
+        onCancel: this.confirmModalData.onCancel,
+        destructive: true
+      }) : ''}
+
+      ${this.showBirthdayModal ? this.renderBirthdayModal() : ''}
+      ${this.showEventModal ? this.renderEventModal() : ''}
+      ${this.showActModal ? this.renderActModal() : ''}
     `;
   }
 }

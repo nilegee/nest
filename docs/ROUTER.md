@@ -61,15 +61,27 @@ getRouteFromHash() {
 #### Focus Management
 ```javascript
 setMainFocus() {
-  setTimeout(() => {
-    const mainHeading = this.shadowRoot.querySelector('h1');
+  // Use requestAnimationFrame to ensure DOM is updated
+  requestAnimationFrame(() => {
+    const mainHeading = this.shadowRoot?.querySelector('#main-content');
     if (mainHeading) {
       mainHeading.focus();
-      mainHeading.tabIndex = -1;
+      mainHeading.tabIndex = -1; // Remove from tab order after focus
     }
-  }, 0);
+  });
+}
+
+navigateToRoute(route) {
+  window.location.hash = route;
+  this.setMainFocus(); // Set focus to main content when route changes
 }
 ```
+
+**Implementation:**
+- Focus moves to main heading (`#main-content`) on route changes
+- `tabIndex="-1"` prevents heading from staying in tab order
+- `requestAnimationFrame` ensures DOM updates before focus management
+- Works with hash changes and programmatic navigation
 
 ## Route Registry
 

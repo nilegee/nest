@@ -27,6 +27,28 @@ function initToastContainer() {
 }
 
 /**
+ * Announce message to screen readers
+ * @param {string} message - Message to announce
+ */
+function announceToScreenReader(message) {
+  const liveRegion = document.querySelector('[aria-live="polite"]');
+  if (liveRegion) {
+    // Clear existing content first
+    liveRegion.textContent = '';
+    
+    // Set new content after a brief delay to ensure it's announced
+    setTimeout(() => {
+      liveRegion.textContent = message;
+    }, 100);
+    
+    // Clear the message after it's been announced
+    setTimeout(() => {
+      liveRegion.textContent = '';
+    }, 3000);
+  }
+}
+
+/**
  * Show a toast notification
  * @param {string} message - The message to display
  * @param {string} type - success | error | info | warning
@@ -34,6 +56,9 @@ function initToastContainer() {
  */
 export function showToast(message, type = 'info', duration = 4000) {
   initToastContainer();
+  
+  // Announce to screen readers
+  announceToScreenReader(message);
   
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;

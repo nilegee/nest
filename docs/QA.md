@@ -181,6 +181,64 @@
   - [ ] "Share" button processes input (logs to console)
   - [ ] Placeholder text displays when empty
 
+## Accessibility & UX Enhancements
+
+### Loading States
+- [ ] **Data Panel Loading**
+  - [ ] All data panels show appropriate loading indicators (Posts, Events, Birthdays, Acts)
+  - [ ] Loading messages are contextual ("Loading family posts...", "Loading events...")
+  - [ ] Loading spinners respect `prefers-reduced-motion`
+  - [ ] No layout shifts during loading transitions
+
+### Empty States  
+- [ ] **Helpful Empty Messages**
+  - [ ] Feed shows "No posts yet. Be the first to share!" with action button
+  - [ ] Events shows "No upcoming events. Create the first event!" with focus action
+  - [ ] Acts shows "No acts recorded yet. Start logging!" with focus action
+  - [ ] All empty states include relevant icons and encouraging messaging
+
+### Error States
+- [ ] **User-Friendly Error Handling**
+  - [ ] Failed data loads show error message with "Try Again" button
+  - [ ] Network errors show appropriate messaging
+  - [ ] Permission errors explain access issues
+  - [ ] Error messages are actionable and clear
+
+### Toast Notifications
+- [ ] **Consistent Feedback**
+  - [ ] Success messages appear for all CRUD operations
+  - [ ] Error messages show user-friendly text (not technical errors)
+  - [ ] Loading toasts show progress for long operations
+  - [ ] Toast messages are announced to screen readers
+  - [ ] Toasts are dismissible and auto-remove
+
+### Modal Dialogs
+- [ ] **Accessible Modals**
+  - [ ] Birthday modal allows adding/editing name, DOB, avatar URL
+  - [ ] Act modal supports creating/editing with points, category, description
+  - [ ] Event modal includes title, date/time, location, description fields
+  - [ ] All modals have proper ARIA roles (aria-modal="true")
+  - [ ] Focus is trapped within modals during interaction
+  - [ ] Escape key closes modals, focus returns to trigger element
+  - [ ] Confirmation dialogs appear for destructive actions (delete)
+
+### Keyboard Navigation
+- [ ] **Full Keyboard Support**
+  - [ ] Tab key navigates through all interactive elements in logical order
+  - [ ] Space and Enter activate navigation links and buttons
+  - [ ] Arrow keys work in form controls (selects, radio groups)
+  - [ ] All modal actions are keyboard accessible
+  - [ ] Focus management moves to main heading on route changes
+
+### Screen Reader Support
+- [ ] **ARIA Implementation**
+  - [ ] Navigation uses role="navigation" with aria-label
+  - [ ] Current page marked with aria-current="page"
+  - [ ] Icon-only buttons have aria-label attributes
+  - [ ] Icons have aria-hidden="true" when decorative
+  - [ ] Live region announces important state changes
+  - [ ] Form fields have proper labels and error associations
+
 ## Accessibility
 - [ ] **Semantic HTML**
   - [ ] Proper landmarks: `<nav>`, `<main>`, `<aside>`
@@ -191,6 +249,7 @@
   - [ ] All interactive elements are keyboard accessible
   - [ ] Focus rings are visible on all focusable elements
   - [ ] Tab order is logical and intuitive
+  - [ ] Skip to content link works and is visible on focus
 
 - [ ] **ARIA Labels**
   - [ ] Current page has `aria-current="page"`
