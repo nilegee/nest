@@ -4,6 +4,7 @@
  */
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { getUpcomingBirthdaysForCard } from './cards/birthdays.js';
 
 export class FnCardBirthday extends LitElement {
   static properties = {
@@ -189,92 +190,20 @@ export class FnCardBirthday extends LitElement {
     super();
     this.showCelebration = false;
     
-    // Sample birthday data - replace with Supabase queries later
-    this.birthdays = [
-      {
-        id: 1,
-        name: "Mom",
-        birthDate: new Date(new Date().getFullYear(), 11, 15), // December 15th this year
-        avatar: "👩"
-      },
-      {
-        id: 2,
-        name: "Jake",
-        birthDate: new Date(new Date().getFullYear() + 1, 2, 8), // March 8th next year
-        avatar: "👦"
-      },
-      {
-        id: 3,
-        name: "Grandpa",
-        birthDate: new Date(new Date().getFullYear() + 1, 5, 22), // June 22nd next year
-        avatar: "👴"
-      }
-    ];
+    // Load real birthday data using the new module
+    this.loadBirthdays();
   }
 
   /**
-   * Calculate age based on birth date
+   * Load upcoming birthdays from the birthdays module
    */
-  calculateAge(birthDate) {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
+  loadBirthdays() {
+    try {
+      this.birthdays = getUpcomingBirthdaysForCard(new Date(), 3); // Limit to 3 for card display
+    } catch (error) {
+      console.error('Error loading birthdays:', error);
+      this.birthdays = [];
     }
-    
-    return age + 1; // Next birthday age
-  }
-
-  /**
-   * Calculate days until birthday
-   */
-  daysUntilBirthday(birthDate) {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    let nextBirthday = new Date(currentYear, birthDate.getMonth(), birthDate.getDate());
-    
-    // If birthday has passed this year, use next year
-    if (nextBirthday < today) {
-      nextBirthday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate());
-    }
-    
-    const diffTime = nextBirthday.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return diffDays;
-  }
-
-  /**
-   * Check if birthday is today
-   */
-  isBirthdayToday(birthDate) {
-    const today = new Date();
-    return today.getMonth() === birthDate.getMonth() && 
-           today.getDate() === birthDate.getDate();
-  }
-
-  /**
-   * Get countdown text
-   */
-  getCountdownText(days) {
-    if (days === 0) return "Today! 🎉";
-    if (days === 1) return "Tomorrow";
-    if (days < 7) return `In ${days} days`;
-    if (days < 30) return `In ${Math.floor(days / 7)} weeks`;
-    return `In ${Math.floor(days / 30)} months`;
-  }
-
-  /**
-   * Format birthday date
-   */
-  formatBirthdayDate(birthDate) {
-    return birthDate.toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric' 
-    });
   }
 
   /**
@@ -286,15 +215,8 @@ export class FnCardBirthday extends LitElement {
   }
 
   render() {
-    // Sort birthdays by days until next occurrence
-    const sortedBirthdays = [...this.birthdays]
-      .map(birthday => ({
-        ...birthday,
-        daysUntil: this.daysUntilBirthday(birthday.birthDate),
-        isToday: this.isBirthdayToday(birthday.birthDate)
-      }))
-      .sort((a, b) => a.daysUntil - b.daysUntil)
-      .slice(0, 3); // Show max 3 upcoming birthdays
+    // Birthdays are already sorted and limited by the birthdays module
+    const upcomingBirthdays = this.birthdays || [];
 
     return html`
       <div class="card">
@@ -303,8 +225,8 @@ export class FnCardBirthday extends LitElement {
           <h3 class="card-title">Birthdays & Celebrations</h3>
         </div>
         
-        ${sortedBirthdays.length > 0 ? html`
-          ${sortedBirthdays.map(birthday => html`
+        ${upcomingBirthdays.length > 0 ? html`
+          ${upcomingBirthdays.map(birthday => html`
             <div class="birthday-item ${birthday.isToday ? 'celebration-item' : ''}">
               ${birthday.isToday ? html`
                 <div class="celebration-text">
@@ -319,16 +241,17 @@ export class FnCardBirthday extends LitElement {
                   ${birthday.name}
                 </div>
                 <div class="birthday-age">
-                  ${this.calculateAge(birthday.birthDate)}
+                  ${birthday.turningAge}
                 </div>
               </div>
               
               <p class="birthday-date">
-                ${this.formatBirthdayDate(birthday.birthDate)}
+                ${birthday.dateText}
               </p>
               
               <p class="birthday-countdown">
-                ${this.getCountdownText(birthday.daysUntil)}
+                ${birthday.isToday ? `Today • turning ${birthday.turningAge}` : 
+                  `${birthday.countdownText} • turning ${birthday.turningAge}`}
               </p>
             </div>
           `)}
