@@ -93,12 +93,26 @@ export class FnApp extends LitElement {
         search: window.location.search
       });
       
-      // Get initial session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      // Check for OAuth error in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+      
+      const error = urlParams.get('error') || hashParams.get('error');
+      const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
       
       if (error) {
-        console.error('Session error:', error);
-        throw error;
+        console.error('OAuth error in URL:', error, errorDescription);
+        this.error = `Authentication failed: ${errorDescription || error}`;
+        this.loading = false;
+        return;
+      }
+      
+      // Get initial session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
       }
       
       console.log('Initial session:', session?.user?.email || 'No session');
@@ -169,6 +183,11 @@ export class FnApp extends LitElement {
     try {
       this.loading = true;
       await supabase.auth.signOut();
+      
+      // Clear any remaining session data
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.clear();
+      }
     } catch (error) {
       console.error('Sign out error:', error);
       this.error = 'Failed to sign out';
