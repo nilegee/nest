@@ -1599,11 +1599,6 @@ export class FnHome extends LitElement {
       return false;
     }
   }
-    } catch (error) {
-      console.error('Failed to create event:', error);
-      return false;
-    }
-  }
 
   /**
    * Load acts for user's family
