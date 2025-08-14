@@ -1,16 +1,18 @@
----
 name: Deploy Supabase Schema
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [ main ]
     paths:
-      - "supabase/**/*.sql"
+      - "supabase/**.sql"
+      - ".github/workflows/deploy-migrations.yml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      RAW_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,43 +23,55 @@ jobs:
           sudo apt-get install -y postgresql-client
 
       - name: Sanitize DATABASE_URL
+        id: sanitize
+        shell: bash
         run: |
-          set -e
-          RAW_DATABASE_URL="${{ secrets.DATABASE_URL }}"
-
-          # Strip surrounding quotes from entire URL
-          SANITIZED_URL=$(echo "$RAW_DATABASE_URL" | sed 's/^"\(.*\)"$/\1/')
-
-          # Replace sslmode="require" or URL-encoded quotes with sslmode=require
-          SANITIZED_URL=$(echo "$SANITIZED_URL" | \
-            sed 's/sslmode=%22require%22/sslmode=require/g')
-          SANITIZED_URL=$(echo "$SANITIZED_URL" | \
-            sed 's/sslmode="require"/sslmode=require/g')
-
-          # Append sslmode=require if missing
-          if [[ "$SANITIZED_URL" != *"sslmode="* ]]; then
-            if [[ "$SANITIZED_URL" == *"?"* ]]; then
-              SANITIZED_URL="${SANITIZED_URL}&sslmode=require"
-            else
-              SANITIZED_URL="${SANITIZED_URL}?sslmode=require"
-            fi
+          set -euo pipefail
+          URL="$RAW_DATABASE_URL"
+          # strip wrapping quotes if any
+          URL="${URL%\"}"; URL="${URL#\"}"
+          URL="${URL%\'}"; URL="${URL#\'}"
+          # normalize sslmode=require
+          URL="${URL//sslmode=\"require\"/sslmode=require}"
+          URL="${URL//sslmode=%22require%22/sslmode=require}"
+          if [[ "$URL" != *"sslmode="* ]]; then
+            if [[ "$URL" == *"?"* ]]; then URL="${URL}&sslmode=require"; else URL="${URL}?sslmode=require"; fi
           fi
-
-          echo "SANITIZED_URL=$SANITIZED_URL" >> $GITHUB_ENV
+          echo "SANITIZED_URL=$URL" >> $GITHUB_ENV
+          # redacted print for logs
+          SAFE="${URL//postgresql:\\/\\/postgres:*@/postgresql:\/\/postgres:***@}"
+          echo "Using URL (redacted): $SAFE"
 
       - name: Connectivity probe
         run: |
           set -e
-          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c '\conninfo'
+          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
+
+      - name: Preflight – confirm schema file exists
+        run: |
+          set -e
+          test -f supabase/schema_inferred.sql || { echo "ERROR: supabase/schema_inferred.sql not found"; ls -R; exit 66; }
+          echo "Found schema file: supabase/schema_inferred.sql (size $(wc -c < supabase/schema_inferred.sql) bytes)"
 
       - name: Ensure required extensions
         run: |
           set -e
-          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 \
-            -c 'create extension if not exists "pgcrypto";'
+          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
 
-      - name: Apply schema
+      - name: Apply schema (verbose, echo errors)
         run: |
           set -e
-          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 \
+          # Most helpful psql flags for debugging:
+          # --echo-errors prints the server error messages immediately
+          # --echo-queries prints statements before execution
+          # -v VERBOSITY=verbose shows detail, including constraint names, positions
+          # -v ON_ERROR_STOP=1 makes psql exit on first error (we want the first failing line)
+          psql "$SANITIZED_URL" \
+            --echo-errors --echo-queries \
+            -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
             -f supabase/schema_inferred.sql
+        shell: bash
+
+      - name: Success marker
+        if: success()
+        run: echo "✅ Schema applied successfully."
