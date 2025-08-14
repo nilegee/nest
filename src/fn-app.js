@@ -6,6 +6,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 import { WHITELISTED_EMAILS } from '../web/env.js';
+import { bootWarn } from './lib/log.js';
 
 export class FnApp extends LitElement {
   static properties = {
@@ -80,6 +81,19 @@ export class FnApp extends LitElement {
     this.error = '';
     
     this.initAuth();
+    this.initProactiveBootstrap();
+  }
+
+  /**
+   * Optional proactive bootstrap (tolerate 404 gracefully)
+   */
+  async initProactiveBootstrap() {
+    try {
+      const url = new URL('./proactive/bootstrap.js', import.meta.url).href;
+      await import(url);
+    } catch (e) {
+      bootWarn('Optional proactive/bootstrap.js missing or failed', e?.message || e);
+    }
   }
 
   /**
@@ -162,10 +176,9 @@ export class FnApp extends LitElement {
       
       console.log('User authorized, loading home view');
       
-      // Clean up URL after successful OAuth redirect
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        console.log('Cleaning up OAuth callback URL');
-        window.history.replaceState({}, document.title, window.location.pathname);
+      // Clean OAuth hash after parsing
+      if (location.hash && location.hash.startsWith('#access_token=')) {
+        history.replaceState({}, document.title, location.pathname + location.search);
       }
     } else {
       console.log('No authenticated user, showing landing page');

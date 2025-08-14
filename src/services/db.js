@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../../web/supabaseClient.js';
+import { bootWarn } from '../lib/log.js';
 
 /**
  * Select data from a table with optional query parameters
@@ -154,23 +155,29 @@ export async function rpc(functionName, params = {}) {
 }
 
 /**
- * Get the authenticated user's profile from the me view
+ * Get the authenticated user's profile from the me view with fallback to profiles
+ * @param {Object} supabaseClient - Supabase client instance
+ * @param {string} userId - User ID for fallback query
  * @returns {Promise<{data: import('../types.d.ts').Profile|null, error: any}>}
  */
-export async function getCurrentUserProfile() {
-  try {
-    const result = await supabase
-      .from('me')
-      .select('*')
-      .single();
-    
-    if (result.error) {
-      throw new Error(result.error.message);
-    }
-    
-    return { data: result.data, error: null };
-  } catch (error) {
-    console.error('Database getCurrentUserProfile error:', error);
-    return { data: null, error };
+export async function getCurrentUserProfile(supabaseClient = supabase, userId) {
+  // 1) Try the me view
+  let { data, error, status } = await supabaseClient.from('me').select('*').maybeSingle();
+  if (error && status !== 406) console.warn('me view error', { status, error });
+  if (error && status === 406) bootWarn('me view returns 406 (likely RLS)', { status, error });
+  if (data) return { data, error: null };
+
+  // 2) Fallback to profiles (RLS must allow owner)
+  const { data: prof, error: pErr, status: pStatus } = await supabaseClient
+    .from('profiles')
+    .select('user_id, full_name, dob, family_id, avatar_url')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (pErr && pStatus !== 406) console.warn('profiles fallback error', { pStatus, pErr });
+  if (pErr && pStatus === 406) bootWarn('profiles call returns 406 (likely RLS)', { pStatus, pErr });
+
+  if (!prof) {
+    throw new Error('Profile not available. Run latest DB migrations to add `me` view and RLS.');
   }
+  return { data: prof, error: null };
 }

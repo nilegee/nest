@@ -326,9 +326,8 @@
   <script type="module" src="./src/fn-card-birthday.js"></script>
   <script type="module" src="./src/fn-card-goal.js"></script>
 
-  <!-- Proactive System (opt-in) -->
+  <!-- Proactive System setup (bootstrap loaded dynamically in fn-app.js) -->
   <script type="module">
-    import '/src/proactive/bootstrap.js';
     if (window.NEST_PROACTIVE_ENABLED === undefined) window.NEST_PROACTIVE_ENABLED = false; // default OFF
   </script>
 </body>

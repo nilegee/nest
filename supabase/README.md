@@ -2,6 +2,9 @@
 
 This directory contains database migration files that are automatically applied when changes are pushed to the `main` branch.
 
+The frontend expects public.me (a current-user view) and RLS policies on profiles.
+Run migrations before loading the app.
+
 ## Migration Workflow
 
 ### 🔄 Automatic Deployment

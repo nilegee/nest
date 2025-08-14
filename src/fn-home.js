@@ -560,7 +560,7 @@ export class FnHome extends LitElement {
    */
   async loadUserProfile() {
     try {
-      const { data, error } = await db.getCurrentUserProfile();
+      const { data, error } = await db.getCurrentUserProfile(supabase, this.session?.user?.id);
       
       if (error) {
         showError('Error loading profile');
@@ -575,6 +575,7 @@ export class FnHome extends LitElement {
         sessionStore.setFamilyId(data.family_id);
       }
     } catch (error) {
+      console.log('Profile loading failed - likely due to missing migrations or RLS setup');
       showError('Failed to load profile');
     }
   }
@@ -757,6 +758,6 @@ export class FnHome extends LitElement {
   }
 }
 
-customElements.define('fn-home', FnHome);
-
-customElements.define('fn-home', FnHome);
+if (!customElements.get('fn-home')) {
+  customElements.define('fn-home', FnHome);
+}
