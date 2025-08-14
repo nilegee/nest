@@ -5,6 +5,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { waitForSession } from './lib/session-store.js';
 import { FamilyBot } from './fn-family-bot.js';
 import { getAllThemes, applyTheme } from './themes.js';
 import { showSuccess, showError } from './toast-helper.js';
@@ -310,11 +311,8 @@ export class FnProfile extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    // Guard against missing session
-    if (!this.session?.user) {
-      console.warn('No session available in profile component');
-      return;
-    }
+    this.session = await waitForSession();
+    if (!this.session) return; // safety
     
     await this.loadProfile();
     await this.loadPreferences();

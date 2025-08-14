@@ -5,6 +5,7 @@
  */
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
+import { waitForSession } from '../lib/session-store.js';
 import { getSession } from '../services/session-store.js';
 
 // Lazy import the chores component
@@ -33,9 +34,10 @@ export class ChoresView extends LitElement {
     this.session = null;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
-    this.session = getSession();
+    this.session = await waitForSession();
+    if (!this.session) return; // safety
     
     // Import the component when this view is loaded
     importChoresComponent();

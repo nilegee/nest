@@ -7,6 +7,9 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
+import { insertReturning, deleteById } from '../lib/db-helpers.js';
+import { supabase } from '../../web/supabaseClient.js';
+import { waitForSession } from '../lib/session-store.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { ACT_KINDS } from '../constants.js';
 
@@ -306,8 +309,10 @@ export class GoalsView extends LitElement {
     this.goalsLoading = true;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
+    this.session = await waitForSession();
+    if (!this.session) return; // safety
     this.loadActs();
     this.loadCurrentGoal();
   }
@@ -428,7 +433,7 @@ export class GoalsView extends LitElement {
     const payload = {
       family_id: familyId,
       user_id: user.id,
-      kind,
+      kind: 'habit', // keep as habit
       points,
       meta
     };
@@ -437,15 +442,12 @@ export class GoalsView extends LitElement {
       payload.kind = KIND_MAP[payload.kind];
     }
     
-    const { data, error } = await db.insert('acts', payload);
+    const row = await insertReturning('acts', payload, supabase);
 
-    if (error) {
-      throw error;
-    }
-
-    // Reload data to update UI
-    this.loadActs();
-    this.loadCurrentGoal();
+    // Update local state - add to acts list
+    this.acts = [row, ...this.acts];
+    this.loadCurrentGoal(); // Refresh goal progress
+    this.requestUpdate();
     
     return true;
   }

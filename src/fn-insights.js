@@ -5,8 +5,24 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { waitForSession } from './lib/session-store.js';
 import { FamilyBot } from './fn-family-bot.js';
 import { showSuccess, showError } from './toast-helper.js';
+
+function basePath() {
+  // works on /nest/ and local /
+  const base = document.querySelector('base')?.getAttribute('href');
+  if (base) return base;
+  const p = window.location.pathname;
+  return p.includes('/nest/') ? '/nest/' : '/';
+}
+
+async function loadParentingTips() {
+  const url = basePath() + 'src/data/parenting-tips.json';
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('tips fetch failed ' + res.status);
+  return res.json();
+}
 
 export class FnInsights extends LitElement {
   static properties = {
@@ -306,6 +322,9 @@ export class FnInsights extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    this.session = await waitForSession();
+    if (!this.session) return; // safety
+    
     await Promise.all([
       this.loadParentingTips(),
       this.loadFamilyProfiles(),
@@ -318,8 +337,7 @@ export class FnInsights extends LitElement {
 
   async loadParentingTips() {
     try {
-      const response = await fetch('/src/data/parenting-tips.json');
-      this.parentingTips = await response.json();
+      this.parentingTips = await loadParentingTips();
     } catch (error) {
       console.error('Failed to load parenting tips:', error);
     }

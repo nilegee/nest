@@ -5,6 +5,8 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { waitForSession } from './lib/session-store.js';
+import { insertReturning, deleteById } from './lib/db-helpers.js';
 import { showSuccess, showError } from './toast-helper.js';
 
 export class FnNotes extends LitElement {
@@ -345,12 +347,8 @@ export class FnNotes extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    // Guard against missing session
-    if (!this.session?.user) {
-      console.warn('No session available in notes component');
-      this.loading = false;
-      return;
-    }
+    this.session = await waitForSession();
+    if (!this.session) return; // safety
     await this.loadNotes();
   }
 
@@ -446,14 +444,7 @@ export class FnNotes extends LitElement {
         }
       } else {
         // Create new note
-        const { data, error } = await supabase
-          .from('notes')
-          .insert(noteData)
-          .select()
-          .single();
-
-        if (error) throw error;
-        result = data;
+        result = await insertReturning('notes', noteData, supabase);
 
         // Add to local array
         this.notes = [result, ...this.notes];
@@ -481,12 +472,7 @@ export class FnNotes extends LitElement {
     if (!confirm('Delete this note? This cannot be undone.')) return;
 
     try {
-      const { error } = await supabase
-        .from('notes')
-        .delete()
-        .eq('id', note.id);
-
-      if (error) throw error;
+      await deleteById('notes', note.id, supabase);
       
       this.notes = this.notes.filter(n => n.id !== note.id);
       
