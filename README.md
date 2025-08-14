@@ -8,6 +8,8 @@
 
 This project includes a manual GitHub Action that **DESTROYS ALL PUBLIC DATA** and recreates the database from `db/schema.sql`.
 
+> **⚡ Preferred**: Use the new migration workflow in `supabase/migrations/` for schema changes. This reset is only for emergencies.
+
 ### How to run safely
 
 1. **Set repository secrets:**
@@ -134,9 +136,42 @@ Ensure `.env.local` is configured and `node ./scripts/sync-env.mjs` has generate
 /web/                          # Environment and client setup
   supabaseClient.js            # createClient with persistSession:false
   env.js                       # Generated from .env.local
-/db/schema.sql                 # Tables + RLS policies
+/db/schema.sql                 # Tables + RLS policies (legacy)
+/supabase/                     # Migration-based schema management
+  migrations/                  # Timestamped SQL migration files
+  README.md                    # Migration workflow documentation
 /docs/QA.md                    # Smoke test procedures
 ```
+
+## Database Migrations
+
+**New schema changes use the migration-based workflow:**
+
+- **Location**: `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
+- **Deployment**: Automatic on push to `main` via GitHub Actions
+- **Rule**: Never apply manual database changes—commit and push only
+
+### Adding Schema Changes
+
+1. Create timestamped migration file:
+   ```bash
+   touch supabase/migrations/$(date -u +"%Y%m%d%H%M%S")_your_change.sql
+   ```
+
+2. Write your SQL migration:
+   ```sql
+   CREATE TABLE IF NOT EXISTS new_table (
+     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     created_at TIMESTAMPTZ DEFAULT NOW()
+   );
+   ```
+
+3. Commit and push (triggers auto-deployment):
+   ```bash
+   git add supabase/migrations/ && git commit -m "Add new table" && git push
+   ```
+
+**Complete documentation**: See `supabase/README.md`
 
 ## QA Checklist
 
