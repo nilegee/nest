@@ -1,135 +1,47 @@
-name: Deploy Supabase Schema (IPv4, hardened)
+name: Deploy Supabase Schema (Session Pooler)
+
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - "supabase/**.sql"
-      - ".github/workflows/deploy-migrations.yml"
+      - "supabase/migrations/**/*.sql"
+      - "supabase/migrations/*.sql"
+  workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      RAW_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL client (and DNS tools)
+      - name: Install PostgreSQL client
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client dnsutils
+          sudo apt-get install -y postgresql-client
 
-      - name: Sanity check secret and sanitize URL
-        id: sanitize
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "${RAW_DATABASE_URL:-}" ]]; then
-            echo "ERROR: DATABASE_URL secret is missing or empty." >&2
-            exit 64
-          fi
-          URL="$RAW_DATABASE_URL"
-          # strip wrapping quotes if any
-          URL="${URL%\"}"; URL="${URL#\"}"; URL="${URL%\'}"; URL="${URL#\'}"
-          # normalize sslmode=require
-          URL="${URL//sslmode=\"require\"/sslmode=require}"
-          URL="${URL//sslmode=%22require%22/sslmode=require}"
-          if [[ "$URL" != *"sslmode="* ]]; then
-            if [[ "$URL" == *"?"* ]]; then URL="${URL}&sslmode=require"; else URL="${URL}?sslmode=require"; fi
-          fi
-          echo "SANITIZED_URL=$URL" >> "$GITHUB_ENV"
-
-          # Extract host without Python (scheme://user:pass@HOST:port/db?query)
-          HOST="$(printf '%s' "$URL" | sed -E 's#^[a-zA-Z]+://([^/@]+@)?([^/:?]+).*#\2#;t;d')"
-          if [[ -z "$HOST" ]]; then
-            echo "ERROR: Could not parse DB host from DATABASE_URL." >&2
-            exit 65
-          fi
-          echo "DB_HOST=$HOST" >> "$GITHUB_ENV"
-
-          SAFE="${URL//postgresql:\/\/postgres:*@/postgresql:\/\/postgres:***@}"
-          echo "Using URL (redacted): $SAFE"
-          echo "Parsed host: $HOST"
-
-      - name: Resolve IPv4 (robust, non-fatal)
-        shell: bash
+      - name: Connectivity probe (Session Pooler)
         env:
-          DB_HOST: ${{ env.DB_HOST }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          set -euo pipefail
-          host="${DB_HOST}"
+          # Expecting an IPv4-friendly pooler URL, e.g.:
+          # postgresql://user:pass@aws-0-<region>.pooler.supabase.com:6543/postgres?sslmode=require
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'select version();'
 
-          ipv4=""
-          # Try getent first; don't fail the step if it returns non-zero
-          tmpfile="$(mktemp)"
-          getent ahostsv4 "$host" 2>/dev/null | awk 'NR==1{print $1; exit}' > "$tmpfile" || true
-          if [[ -s "$tmpfile" ]]; then
-            ipv4="$(cat "$tmpfile")"
-          fi
-
-          # Fallback to dig if needed
-          if [[ -z "$ipv4" ]] && command -v dig >/dev/null 2>&1; then
-            ipv4="$(dig +short A "$host" | head -n1 || true)"
-          fi
-
-          # Last-chance grep from generic getent hosts
-          if [[ -z "$ipv4" ]] && command -v getent >/dev/null 2>&1; then
-            ipv4="$(getent hosts "$host" | awk '{print $1}' | grep -E '^[0-9]+\.' | head -n1 || true)"
-          fi
-
-          if [[ -n "$ipv4" ]]; then
-            echo "Resolved IPv4: $ipv4"
-            echo "PGHOSTADDR=$ipv4" >> "$GITHUB_ENV"
-          else
-            echo "WARN: Could not resolve an IPv4 A record. Proceeding with hostname."
-            # No export of PGHOSTADDR; psql will use the hostname and system resolver.
-          fi
-
-      - name: Connectivity probe (forced IPv4)
-        shell: bash
+      - name: Apply migrations (sorted by timestamp)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          set -euo pipefail
-          if [[ -n "${PGHOSTADDR:-}" ]]; then
-            PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
-          else
-            psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
+          shopt -s nullglob
+          mapfile -t files < <(printf '%s\n' supabase/migrations/*.sql supabase/migrations/**/*.sql | sort)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No migration files found. Skipping."
+            exit 0
           fi
+          for file in "${files[@]}"; do
+            echo "Applying $file"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file"
+          done
+          echo "Automation Verified ✅ — migrations applied via Session Pooler"
 
-      - name: Preflight – confirm schema file exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f supabase/schema_inferred.sql || { echo "ERROR: supabase/schema_inferred.sql not found"; ls -R; exit 66; }
-          echo "Found schema file: supabase/schema_inferred.sql (size $(wc -c < supabase/schema_inferred.sql) bytes)"
-          echo "DB host: $DB_HOST | IPv4: ${PGHOSTADDR:-"(hostname fallback)"}"
-
-      - name: Ensure required extensions
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "${PGHOSTADDR:-}" ]]; then
-            PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
-          else
-            psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
-          fi
-
-      - name: Apply schema (verbose, echo errors; IPv4)
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "${PGHOSTADDR:-}" ]]; then
-            PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" \
-              --echo-errors --echo-queries \
-              -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
-              -f supabase/schema_inferred.sql
-          else
-            psql "$SANITIZED_URL" \
-              --echo-errors --echo-queries \
-              -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
-              -f supabase/schema_inferred.sql
-          fi
-
-      - name: Success marker
-        if: success()
-        run: echo "✅ Schema applied successfully (hostname or IPv4)."
