@@ -222,3 +222,14 @@ For complete QA procedures, see `docs/QA.md`.
 ---
 
 **Made with ❤️ for families who want to stay connected.**
+
+## Database schema workflow
+
+**Secret:** In GitHub → Settings → Secrets and variables → Actions, set `DATABASE_URL` to your Supabase **Session Pooler** URI **including** `?sslmode=require`, for example:
+`postgresql://<user>:<pass>@aws-0-<region>.pooler.supabase.com:6543/postgres?sslmode=require`
+
+### Daily routine
+1. (Optional) Pull baseline from remote
+   ```bash
+   supabase db pull --db-url "$DATABASE_URL"
+   ```
