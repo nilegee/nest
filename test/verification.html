@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FamilyNest Verification</title>
+</head>
+<body>
+  <h1>FamilyNest Stabilization Verification</h1>
+  <p>Open browser console and run: <code>runVerificationTests()</code></p>
+  
+  <h2>Expected Outcomes:</h2>
+  <ul>
+    <li>✅ Proactive bootstrap should either load or fail gracefully</li>
+    <li>✅ Custom elements should not throw redefinition errors</li>
+    <li>✅ OAuth hash cleanup should work</li>
+    <li>✅ Fetch wrapper should import successfully</li>
+    <li>✅ Boot warning logger should work</li>
+  </ul>
+  
+  <script type="module" src="./verification.js"></script>
+</body>
+</html>

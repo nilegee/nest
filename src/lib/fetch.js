@@ -8,7 +8,7 @@
  * @param {RequestInit} [opts] - Fetch options
  * @returns {Promise<Response>}
  */
-export async function fetchJSON(input: string | URL, opts?: RequestInit): Promise<Response> {
+export async function fetchJSON(input, opts) {
   const headers = {
     'Accept': 'application/json',
     ...(opts?.headers || {})

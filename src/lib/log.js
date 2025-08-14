@@ -7,6 +7,6 @@
  * @param {string} msg - Warning message
  * @param {any} [ctx] - Optional context
  */
-export function bootWarn(msg: string, ctx?: any): void {
+export function bootWarn(msg, ctx) {
   console.warn('[Boot]', msg, ctx || '');
 }
