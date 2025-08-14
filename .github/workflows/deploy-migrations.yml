@@ -1,71 +1,38 @@
-name: Deploy Database Migrations
+name: Deploy Supabase Schema
 
 on:
-  workflow_dispatch:  # manual-only for now
-
-permissions:
-  contents: read
-
-concurrency:
-  group: supabase-migrations
-  cancel-in-progress: true
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "supabase/**.sql"
+      - ".github/workflows/deploy-migrations.yml"
 
 jobs:
   deploy:
-    name: Apply Supabase migrations
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Install psql client
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
-      - name: Probe DB connectivity
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Connectivity probe
         run: |
-          echo "Probing Postgres…"
-          echo "Branch condition: github.ref == 'refs/heads/main' (current: ${{ github.ref }})"
-          echo "Using DATABASE_URL secret from repository settings"
-          
-          # Test basic connectivity first
-          if ! pg_isready -d "$DATABASE_URL"; then
-            echo "❌ Database not ready. Common fixes:"
-            echo "• SSL required → append ?sslmode=require to DATABASE_URL secret"
-            echo "• Host unreachable → verify host format: db.<project>.supabase.co"
-            echo "• Network restrictions → check Supabase IP allowlist settings"
-            exit 1
-          fi
-          
-          # Test actual connection and query
-          if ! psql "$DATABASE_URL" -c "select version(), now(), current_user, inet_server_addr();"; then
-            echo "❌ Connection failed. Common fixes:"
-            echo "• Password authentication failed → reset DB password in Supabase → update secret"
-            echo "• SSL is required → append ?sslmode=require to DATABASE_URL secret"  
-            echo "• No pg_hba.conf entry → check Supabase IP allowlist / network restrictions"
-            exit 1
-          fi
-          
-          echo "✅ DB reachable"
+          set -e
+          psql "$DATABASE_URL" -Atqc "select 'DB reachable' as ok, current_user, current_date;"
 
-      - name: Verify Supabase CLI (no global install)
-        run: npx supabase --version
-
-      - name: Apply migrations
+      - name: Ensure required extensions
         run: |
-          set -euo pipefail
-          echo "Starting Supabase migrations…"
-          npx supabase db push
-          echo "Automation Verified ✅ — migrations applied successfully"
+          set -e
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
+
+      - name: Apply schema
+        run: |
+          set -e
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/schema_inferred.sql
