@@ -1,0 +1,571 @@
+================================================================================
+                            FAMILYNEST APP STATUS REVIEW
+                                 End-to-End Audit Report
+                              Generated: 2024-12-30
+================================================================================
+
+## 1. PAGES/SCREENS AND ROUTES INVENTORY
+
+### Public Routes (Unauthenticated)
+- **Landing Page** (`/index.html` → `src/fn-landing.js`)
+  - Path: Root URL (/)
+  - Purpose: Login interface with Google OAuth + Magic Link
+  - Access: Open to all, redirects authenticated users
+  - File: `/src/fn-landing.js` (lines 1-350)
+
+### Authenticated Routes (Hash-based SPA)
+All authenticated routes are handled within `src/fn-home.js` using hash fragments:
+
+- **#nest** (Default Dashboard)
+  - Path: `/#nest` or `/` (default)
+  - Purpose: Main family dashboard with sidebar cards
+  - Status: ✅ ACTIVE - Full implementation
+  - File: `/src/fn-home.js` (lines 1815-1860)
+
+- **#feed** (Family Feed)
+  - Path: `/#feed`
+  - Purpose: Social feed with post creation/viewing
+  - Status: ✅ ACTIVE - Full implementation
+  - File: `/src/fn-home.js` (lines 1861-1944)
+
+- **#events** (Event Management)
+  - Path: `/#events`
+  - Purpose: Create, edit, and manage family events
+  - Status: ✅ ACTIVE - Full implementation
+  - File: `/src/fn-home.js` (lines 1945-2080)
+
+- **#goals** (Goals & Acts)
+  - Path: `/#goals`
+  - Purpose: Track family goals and log positive acts
+  - Status: ✅ ACTIVE - Full implementation
+  - File: `/src/fn-home.js` (lines 2081-2150)
+
+- **#chores** (Chore Management)
+  - Path: `/#chores`
+  - Purpose: Household task management
+  - Status: 🚧 PLACEHOLDER - UI shell only
+  - File: `/src/fn-home.js` (lines 2151-2185)
+
+- **#notes** (Family Notes)
+  - Path: `/#notes`
+  - Purpose: Shared family documentation
+  - Status: 🚧 PLACEHOLDER - UI shell only
+  - File: `/src/fn-home.js` (lines 2186-2220)
+
+- **#profile** (Profile Management)
+  - Path: `/#profile`
+  - Purpose: User and family profile settings
+  - Status: 🚧 PLACEHOLDER - UI shell only
+  - File: `/src/fn-home.js` (lines 2221-2255)
+
+- **#insights** (Family Analytics)
+  - Path: `/#insights`
+  - Purpose: Activity trends and progress insights
+  - Status: 🚧 PLACEHOLDER - UI shell only
+  - File: `/src/fn-home.js` (lines 2256-2290)
+
+================================================================================
+
+## 2. TECHNOLOGIES/LIBRARIES ANALYSIS
+
+### Runtime Dependencies (Actually Used)
+- **Lit 3** - CDN: `https://esm.sh/lit@3`
+  - Purpose: Web component framework
+  - Usage: All UI components (`fn-app.js`, `fn-home.js`, `fn-landing.js`, card components)
+  - Status: ✅ ACTIVE
+
+- **Iconify Icons** - CDN: `https://code.iconify.design/iconify-icon/2.1.0/`
+  - Purpose: Icon system via web components
+  - Usage: Throughout UI for navigation, cards, buttons
+  - Status: ✅ ACTIVE
+
+- **Supabase JS v2** - CDN: `https://esm.sh/@supabase/supabase-js@2`
+  - Purpose: Backend-as-a-Service (auth, database, real-time)
+  - Usage: Auth flow, database operations
+  - File: `/web/supabaseClient.js`
+  - Status: ✅ ACTIVE
+
+### Development Dependencies (Package.json)
+- **jsdom** v23.0.0 - Test environment for Node.js testing
+  - Usage: Test runner for component testing
+  - Status: ✅ USED in `/scripts/test-runner.mjs`
+
+### Build/Deployment Tools
+- **NONE** - Zero-build architecture by design
+- Static hosting via GitHub Pages
+- Environment sync via Node.js script: `/scripts/sync-env.mjs`
+
+### Unused/Installed-but-Dormant
+- **No unused packages detected** - Minimal dependency footprint maintained
+
+================================================================================
+
+## 3. LAYOUT/UX BEHAVIOR ANALYSIS
+
+### Desktop Layout (>1023px)
+- **Grid Structure**: 3-column layout
+  - Navigation: 76px collapsed, 240px expanded (collapsible)
+  - Main Content: Flexible width
+  - Sidebar: 320px fixed (sticky positioning)
+- **Breakpoint Logic**: `/index.html` (lines 258-275)
+- **Navigation**: Vertical sidebar with hover expansion
+- **Cards**: Displayed in dedicated right sidebar
+
+### Tablet Layout (768px - 1023px)
+- **Grid Structure**: 2-column layout
+  - Navigation: 60px fixed width
+  - Main Content: Flexible width
+  - Sidebar: Hidden completely
+- **Navigation**: Collapsed icon-only sidebar
+- **Cards**: Inline within main content area (mobile-style)
+
+### Mobile Layout (≤767px)
+- **Grid Structure**: Single column with bottom navigation
+  - Main Content: Full width
+  - Navigation: 60px height bottom bar
+- **Navigation**: Bottom tab bar with icons only
+- **Cards**: Inline within main content area
+
+### Responsive Behavior Issues Found
+- **Layout Shift**: Cards move from sidebar to inline without smooth transition
+- **Navigation Focus**: Hash-based routing may not maintain proper focus order on mobile
+- **Accessibility**: Some touch targets may be under 44px on mobile
+
+### Component Visibility Differences
+- **Sidebar Cards**: Hidden on tablet/mobile, shown as inline content
+- **Navigation Labels**: Hidden on collapsed/mobile states
+- **Quick Actions**: Consistent across all breakpoints
+
+================================================================================
+
+## 4. PROJECT STRUCTURE TREE
+
+```
+/
+├── index.html                     # Root entry point with CDN imports and global styles
+├── package.json                   # Test dependencies only (jsdom for testing)
+├── .gitignore                     # Standard exclusions (node_modules, .env.local, IDE files)
+├── README.md                      # Project documentation with setup instructions
+├── AGENTS.md                      # Development guidelines and extension patterns
+
+├── src/                           # Lit component modules
+│   ├── fn-app.js                  # Main app shell with session management and routing
+│   ├── fn-landing.js              # Login page with Google OAuth + magic link
+│   ├── fn-home.js                 # Authenticated dashboard with 8 routes + responsive layout
+│   ├── fn-page-title.js           # Document title management component
+│   ├── toast-helper.js            # Success/error notification utilities
+│   ├── ui-contract-test.js        # Component integration test suite
+│   ├── fn-card-birthday.js        # Birthday card component with celebration animations
+│   ├── fn-card-events.js          # Events card component for upcoming activities
+│   ├── fn-card-goal.js            # Goal progress card with visual meter
+│   ├── fn-card-tip.js             # Daily tip/quote card component
+│   └── cards/                     # Card system framework
+│       ├── nest-cards.js          # Card registry and rendering utilities
+│       ├── birthdays.js           # Birthday data management with timezone-safe calculations
+│       └── birthdays-test.js      # Unit tests for birthday logic
+
+├── web/                           # Environment and client configuration
+│   ├── env.js                     # Auto-generated environment variables (committed)
+│   └── supabaseClient.js          # Configured Supabase client with session storage
+
+├── db/                            # Database schema and policies
+│   └── schema.sql                 # Complete database schema with RLS policies (235 lines)
+
+├── scripts/                       # Development utilities
+│   ├── sync-env.mjs               # Environment variable sync from .env.local to env.js
+│   ├── test-runner.mjs            # Custom test runner for component testing
+│   ├── verify-schema.sql          # Database schema validation queries
+│   └── verify-rls.sql             # RLS policy validation queries
+
+├── docs/                          # Documentation and procedures
+│   ├── QA.md                      # Comprehensive testing checklist (419 lines)
+│   ├── ROUTER.md                  # Client-side routing documentation
+│   └── OAUTH_DEBUG.md             # Authentication troubleshooting guide
+
+└── test/                          # Test infrastructure
+    └── mocks.js                   # Test mocks and utilities
+```
+
+================================================================================
+
+## 5. NAVIGATION MAP
+
+### Active Navigation Links (Functional)
+- **Logo/Home** → `#nest` (Default dashboard)
+  - File: `/src/fn-home.js` (line 1682)
+  - Behavior: ✅ Navigates to dashboard, triggers focus management
+
+- **Feed** → `#feed` (Family posts)
+  - File: `/src/fn-home.js` (line 1689)
+  - Behavior: ✅ Shows post creation + feed interface
+
+- **Events** → `#events` (Event management)
+  - File: `/src/fn-home.js` (line 1695)
+  - Behavior: ✅ CRUD operations for family events
+
+- **Goals** → `#goals` (Goals tracking)
+  - File: `/src/fn-home.js` (line 1701)
+  - Behavior: ✅ Goal progress with act logging
+
+- **Sign Out** → Auth logout
+  - File: `/src/fn-home.js` (line 1218)
+  - Behavior: ✅ Clears session, returns to landing
+
+### Placeholder Links (Rendered but No Real Functionality)
+- **Chores** → `#chores`
+  - File: `/src/fn-home.js` (line 1707)
+  - Status: 🚧 Shows placeholder content only
+  - Missing: Actual chore CRUD, assignment logic
+
+- **Notes** → `#notes`
+  - File: `/src/fn-home.js` (line 1713)
+  - Status: 🚧 Shows placeholder content only
+  - Missing: Note creation, collaboration features
+
+- **Profile** → `#profile`
+  - File: `/src/fn-home.js` (line 1719)
+  - Status: 🚧 Shows placeholder content only
+  - Missing: Profile editing, family management
+
+- **Insights** → `#insights`
+  - File: `/src/fn-home.js` (line 1725)
+  - Status: 🚧 Shows placeholder content only
+  - Missing: Analytics, progress tracking
+
+### Dead Routes/TODOs
+- **No broken navigation detected** - All routes render appropriate content
+- Hash-based routing with fallback to `#nest` prevents 404 errors
+- Focus management implemented for accessibility (line 929-940)
+
+================================================================================
+
+## 6. DATA FLOW & SUPABASE INTEGRATION
+
+### Supabase Client Initialization
+- **Location**: `/web/supabaseClient.js` (lines 11-34)
+- **Configuration**: 
+  - URL: `https://zlhamcofzyozfyzcgcdg.supabase.co`
+  - Uses sessionStorage instead of localStorage (security requirement)
+  - Auto-refresh disabled, session detection enabled
+- **Status**: ✅ PROPERLY CONFIGURED
+
+### Features Using Supabase (Active)
+
+#### 1. Authentication Flow
+- **Google OAuth**: `/src/fn-landing.js` (lines 34-54)
+  - Table: `auth.users` (managed by Supabase)
+  - Operations: `signInWithOAuth()`
+  - Status: ✅ WORKING
+
+- **Magic Link**: `/src/fn-landing.js` (lines 61-89)
+  - Table: `auth.users` (managed by Supabase)
+  - Operations: `signInWithOtp()`
+  - Status: ✅ WORKING
+
+#### 2. User Profile Management
+- **Load Profile**: `/src/fn-home.js` (lines 1247-1272)
+  - Table: `profiles`
+  - Operations: `SELECT` with family_id lookup
+  - Status: ✅ WORKING
+
+#### 3. Family Feed (Posts)
+- **Create Post**: `/src/fn-home.js` (lines 1471-1496)
+  - Table: `posts`
+  - Operations: `INSERT` with author relationship
+  - Status: ✅ WORKING
+
+- **Load Posts**: `/src/fn-home.js` (lines 1274-1306)
+  - Table: `posts`
+  - Operations: `SELECT` with author join
+  - Status: ✅ WORKING
+
+#### 4. Events Management
+- **Create Event**: `/src/fn-home.js` (lines 1506-1542)
+  - Table: `events`
+  - Operations: `INSERT` with owner relationship
+  - Status: ✅ WORKING
+
+- **Load Events**: `/src/fn-home.js` (lines 1308-1341)
+  - Table: `events`
+  - Operations: `SELECT` with date filtering
+  - Status: ✅ WORKING
+
+- **Update Event**: `/src/fn-home.js` (lines 1544-1581)
+  - Table: `events`
+  - Operations: `UPDATE` by owner
+  - Status: ✅ WORKING
+
+- **Delete Event**: `/src/fn-home.js` (lines 1583-1595)
+  - Table: `events`
+  - Operations: `DELETE` by owner
+  - Status: ✅ WORKING
+
+#### 5. Goals & Acts Tracking
+- **Load Current Goal**: `/src/fn-home.js` (lines 1343-1370)
+  - Table: `acts`
+  - Operations: Complex aggregation query
+  - Status: ✅ WORKING
+
+- **Load Acts**: `/src/fn-home.js` (lines 1372-1404)
+  - Table: `acts`
+  - Operations: `SELECT` with user relationship
+  - Status: ✅ WORKING
+
+- **Create Act**: `/src/fn-home.js` (lines 1640-1670)
+  - Table: `acts`
+  - Operations: `INSERT` with points/meta
+  - Status: ✅ WORKING
+
+### Features Using Local/Memory State (Not Supabase)
+
+#### Birthdays System
+- **Data Source**: Hardcoded in `/src/cards/birthdays.js` (lines 7-12)
+- **Calculation**: Client-side timezone-safe date math
+- **Status**: ⚠️ NOT INTEGRATED - Should potentially sync with profiles.dob
+
+### Schema/Column Name Verification
+- **✅ Families Table**: Referenced correctly (`family_id` foreign keys)
+- **✅ Profiles Table**: Referenced correctly (`user_id`, `full_name`, `dob`, `role`)
+- **✅ Events Table**: Referenced correctly (`owner_id`, `title`, `location`, `starts_at`)
+- **✅ Posts Table**: Referenced correctly (`author_id`, `body`, `visibility`)
+- **✅ Acts Table**: Referenced correctly (`user_id`, `kind`, `points`, `meta`)
+
+### Environment Variables Status
+- **✅ SUPABASE_URL**: Present and valid
+- **✅ SUPABASE_ANON_KEY**: Present and valid
+- **✅ WHITELISTED_EMAILS**: Present with 4 authorized emails
+- **Location**: `/web/env.js` (auto-generated from `.env.local`)
+
+### Silent Failures/Error Handling
+- **Network Errors**: Caught and logged to console, no user feedback
+- **Database Errors**: Caught and logged to console, no user feedback
+- **Missing Enhancement**: Toast notifications for failed operations
+
+================================================================================
+
+## 7. AUTH FLOWS CONFIGURED
+
+### Authentication Methods
+- **Google OAuth** 
+  - Provider: Google Identity Platform
+  - Configuration: `/src/fn-landing.js` (lines 34-54)
+  - Redirect Handling: Dynamic URL generation for dev/prod
+  - Status: ✅ CONFIGURED
+
+- **Magic Link Email**
+  - Provider: Supabase Auth
+  - Configuration: `/src/fn-landing.js` (lines 61-89)
+  - Email Templates: Default Supabase templates
+  - Status: ✅ CONFIGURED
+
+### Session Handling
+- **Storage Method**: sessionStorage (not localStorage per security requirements)
+- **Configuration**: `/web/supabaseClient.js` (lines 14-31)
+- **Persistence**: Session-only (cleared on browser tab close)
+- **Auto-refresh**: Disabled for security
+- **Session Detection**: Enabled for OAuth callbacks
+
+### Email Whitelist Security
+- **Implementation**: Client-side enforcement in `/src/fn-app.js` (lines 156-175)
+- **Whitelist Source**: Environment variable `WHITELISTED_EMAILS`
+- **Authorized Emails**: 4 emails configured
+- **Behavior**: Non-whitelisted users are signed out immediately
+
+### RLS (Row Level Security) Implications
+Based on `/db/schema.sql` analysis:
+
+#### Profile Access
+- **Read**: Users see only same-family profiles (line 133)
+- **Update**: Users can update own profile OR admin can update family members (lines 136-149)
+
+#### Family Data Access
+- **Read**: All family members can read family-scoped data (lines 159-173)
+- **Write**: Owners can manage their own content (lines 176-186)
+- **Admin Override**: Admins can manage family events/notes (lines 207-227)
+
+#### Data Isolation
+- **Family Boundary**: All queries automatically filtered by family_id
+- **User Boundary**: Personal content (posts, acts) filtered by user_id
+- **Admin Privilege**: Can manage but not bypass family boundaries
+
+================================================================================
+
+## 8. API & SCHEMA TOUCHPOINTS
+
+### Tables Used
+
+#### `profiles` Table
+- **Columns Referenced**: `user_id`, `full_name`, `dob`, `role`, `family_id`
+- **Code References**:
+  - Load: `/src/fn-home.js` (lines 1247-1272)
+  - Joins: Multiple queries use profile relationships
+- **RPC Calls**: None
+- **Storage Buckets**: None
+
+#### `events` Table  
+- **Columns Referenced**: `id`, `family_id`, `owner_id`, `title`, `location`, `starts_at`, `ends_at`, `meta`
+- **Code References**:
+  - CRUD: `/src/fn-home.js` (lines 1308-1595)
+  - Component: `/src/fn-card-events.js`
+- **RPC Calls**: None
+- **Storage Buckets**: None
+
+#### `posts` Table
+- **Columns Referenced**: `id`, `family_id`, `author_id`, `body`, `visibility`, `created_at`
+- **Code References**:
+  - CRUD: `/src/fn-home.js` (lines 1274-1496)
+  - Feed UI: `/src/fn-home.js` (lines 1861-1944)
+- **RPC Calls**: None
+- **Storage Buckets**: None
+
+#### `acts` Table
+- **Columns Referenced**: `id`, `family_id`, `user_id`, `kind`, `points`, `meta`, `created_at`
+- **Code References**:
+  - CRUD: `/src/fn-home.js` (lines 1343-1670)
+  - Goals logic: `/src/fn-card-goal.js`
+- **RPC Calls**: None
+- **Storage Buckets**: None
+
+#### `families` Table
+- **Columns Referenced**: `id`, `name`
+- **Code References**: 
+  - Indirect via foreign key relationships
+  - No direct queries found
+- **RPC Calls**: None
+- **Storage Buckets**: None
+
+### Unused Tables (Schema Defined, Not Used)
+- **`feedback`** - MCQ/mood tracking table (not implemented in UI)
+- **`notes`** - Family notes table (placeholder route only)
+
+### Supabase Features Not Used
+- **Real-time Subscriptions**: Not implemented
+- **Storage Buckets**: Not implemented (no file uploads)
+- **Edge Functions**: Not implemented
+- **RPC/Stored Procedures**: Not implemented
+
+================================================================================
+
+## 9. KNOWN ISSUES
+
+### Broken Links/Navigation
+- **No broken links detected** - All navigation routes render appropriately
+- Hash-based routing provides graceful fallbacks
+
+### Failing Database Calls
+#### Issue: Missing Error User Feedback
+- **Location**: All Supabase operations throughout `/src/fn-home.js`
+- **Evidence**: Console.error calls but no user-visible error messages
+- **Lines**: 1252, 1280, 1314, 1349, 1378, 1486, 1512, 1551, 1589, 1646
+- **Impact**: Users unaware when operations fail silently
+
+#### Issue: Network Error Resilience
+- **Location**: All data loading functions
+- **Evidence**: No retry logic or offline handling
+- **Impact**: App breaks silently on network issues
+
+### Unused Code
+#### Issue: Duplicate Birthday Logic
+- **Location**: `/src/fn-home.js` (lines 1405-1462) vs `/src/cards/birthdays.js`
+- **Evidence**: Birthday calculation methods duplicated in fn-home.js
+- **Impact**: Code maintenance burden, potential inconsistency
+
+#### Issue: Hardcoded Birthday Data
+- **Location**: `/src/cards/birthdays.js` (lines 7-12)
+- **Evidence**: BIRTHDAYS array not synced with profiles.dob
+- **Impact**: Data inconsistency between hardcoded and database values
+
+#### Issue: Unused CSS Classes
+- **Location**: Various component style blocks
+- **Evidence**: Some CSS classes defined but never referenced
+- **Impact**: Code bloat (minor)
+
+### Performance Issues
+#### Issue: No Loading State Persistence
+- **Location**: All data loading operations
+- **Evidence**: Loading states reset on component re-render
+- **Impact**: Poor UX with loading flicker
+
+#### Issue: No Data Caching
+- **Location**: All Supabase queries
+- **Evidence**: Fresh API calls on every route change
+- **Impact**: Unnecessary network requests, slower UX
+
+================================================================================
+
+## 10. PRIORITIZED NEXT ACTIONS
+
+### P0 (Critical - Security/Functionality)
+- [ ] **Fix Silent Error Handling** (Owner: Frontend Dev)
+  - Implement toast notifications for failed operations
+  - Add user-friendly error messages for network issues
+  - Files: `/src/fn-home.js` (all Supabase operations)
+  - Timeline: 1-2 days
+
+- [ ] **Birthday Data Integration** (Owner: Backend Dev)
+  - Sync hardcoded birthday data with profiles.dob
+  - Remove duplicate birthday logic in fn-home.js
+  - Files: `/src/cards/birthdays.js`, `/src/fn-home.js` (lines 1405-1462)
+  - Timeline: 1 day
+
+### P1 (High Priority - User Experience)
+- [ ] **Implement Missing Routes** (Owner: Frontend Dev)
+  - Build actual functionality for chores, notes, profile, insights
+  - Replace placeholder content with working interfaces
+  - Files: `/src/fn-home.js` (lines 2151-2290)
+  - Timeline: 1-2 weeks
+
+- [ ] **Add Loading State Management** (Owner: Frontend Dev)
+  - Implement persistent loading indicators
+  - Add skeleton screens for better perceived performance
+  - Files: All data-loading components
+  - Timeline: 2-3 days
+
+- [ ] **Enhance Mobile UX** (Owner: Frontend Dev)
+  - Smooth card transition animations (sidebar to inline)
+  - Ensure all touch targets meet 44px minimum
+  - Improve focus management on route changes
+  - Files: `/index.html`, `/src/fn-home.js` CSS sections
+  - Timeline: 3-4 days
+
+### P2 (Medium Priority - Enhancement)
+- [ ] **Add Data Caching Layer** (Owner: Frontend Dev)
+  - Implement client-side caching for posts, events, profiles
+  - Add cache invalidation strategies
+  - Timeline: 1 week
+
+- [ ] **Real-time Updates** (Owner: Frontend Dev)
+  - Implement Supabase real-time subscriptions
+  - Auto-update UI when family members make changes
+  - Timeline: 1 week
+
+- [ ] **Offline Support** (Owner: Frontend Dev)
+  - Add service worker for offline functionality
+  - Implement offline queue for failed operations
+  - Timeline: 1-2 weeks
+
+### Quick Wins (< 4 hours each)
+- [ ] **Remove Unused Birthday Methods** (Owner: Any Dev)
+  - Delete duplicate birthday logic in fn-home.js
+  - File: `/src/fn-home.js` (lines 1405-1462)
+
+- [ ] **Add Toast Helper Integration** (Owner: Frontend Dev)
+  - Import and use existing toast-helper.js throughout app
+  - File: `/src/toast-helper.js` integration
+
+- [ ] **Improve Error Boundaries** (Owner: Frontend Dev)
+  - Add try-catch blocks around component renders
+  - Graceful degradation for failed card loads
+
+- [ ] **Add Loading Indicators** (Owner: Frontend Dev)
+  - Use existing loading states more consistently
+  - Show spinners during all async operations
+
+================================================================================
+
+END OF REPORT
+Generated: 2024-12-30
+Repository: nilegee/nest
+Branch: main
+Total Files Analyzed: 28
+Total Lines of Code: ~4,500
