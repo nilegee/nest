@@ -1,24 +1,59 @@
-name: Backup DB (manual)
+name: Manual DB Backup
+
 on:
   workflow_dispatch:
+
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Install PostgreSQL client
+      - name: Set up pg_dump 17 (match server 17.x)
         run: |
+          set -euo pipefail
+          # Add PostgreSQL APT repo (signed)
+          sudo mkdir -p /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main 17" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          # Install ONLY the 17 client
+          sudo apt-get install -y postgresql-client-17
+          # Show versions for sanity
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Sanitize DATABASE_URL
+        env:
+          RAW_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          url="${RAW_DATABASE_URL#"\""}"; url="${url%"\""}"
+          url="${url//sslmode=\"require\"/sslmode=require}"
+          url="${url//%22require%22/require}"
+          if [[ "$url" != *"sslmode="* ]]; then
+            sep="&"; [[ "$url" != *"?"* ]] && sep="?"
+            url="${url}${sep}sslmode=require"
+          fi
+          echo "SANITIZED_URL=$url" >> $GITHUB_ENV
+
       - name: Dump database (custom format)
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SANITIZED_URL: ${{ env.SANITIZED_URL }}
         run: |
+          set -euo pipefail
           TS=$(date +%Y%m%d%H%M%S)
-          pg_dump "$DATABASE_URL" --no-owner --format=custom --file "backup_${TS}.dump"
-          echo "Created backup_${TS}.dump"
+          OUT="backup_${TS}.dump"
+          /usr/lib/postgresql/17/bin/pg_dump \
+            --file "$OUT" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            "$SANITIZED_URL"
+          echo "OUT=$OUT" >> $GITHUB_ENV
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: supabase-backup
-          path: "*.dump"
+          name: ${{ env.OUT }}
+          path: ${{ env.OUT }}
           if-no-files-found: error
