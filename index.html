@@ -240,6 +240,14 @@
       outline-offset: 2px;
     }
     
+    /* Header skeleton styles */
+    .app-ready .header-skeleton { display: block; }
+    .header-skeleton { 
+      display: none; 
+      height: 48px; 
+      border-bottom: 1px solid var(--border); 
+    }
+    
     /* Respect reduced motion preferences */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {

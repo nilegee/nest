@@ -239,6 +239,22 @@ export class FeedView extends LitElement {
     super.connectedCallback();
     this.handleTemplateParam();
     this.loadPosts();
+    
+    // Listen for new posts from other components
+    this.handlePostCreated = (event) => {
+      if (event.detail) {
+        this.posts = [event.detail, ...this.posts];
+        this.requestUpdate();
+      }
+    };
+    window.addEventListener('post-created', this.handlePostCreated);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.handlePostCreated) {
+      window.removeEventListener('post-created', this.handlePostCreated);
+    }
   }
 
   /**

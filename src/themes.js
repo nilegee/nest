@@ -3,6 +3,8 @@
  * Provides CSS custom properties for different visual themes
  */
 
+const ALLOWED = new Set(['classic','pubg-lite','roblox-lite']);
+
 export const THEMES = {
   'classic': {
     // Warm, family-friendly colors
@@ -105,7 +107,9 @@ export const THEMES = {
  * @param {HTMLElement} root - The root element (usually document.documentElement)
  * @param {string} themeName - Name of the theme to apply
  */
-export function applyTheme(root, themeName) {
+export function applyTheme(root, themeName = 'classic') {
+  if (!ALLOWED.has(themeName)) themeName = 'classic';
+  
   const theme = THEMES[themeName];
   if (!theme) {
     console.warn(`Theme "${themeName}" not found, falling back to classic`);
@@ -121,7 +125,7 @@ export function applyTheme(root, themeName) {
   // Store current theme for reference
   root.setAttribute('data-theme', themeName);
   
-  console.log(`Applied theme: ${themeName}`);
+  console.log('Applied theme:', themeName);
 }
 
 /**

@@ -7,6 +7,8 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
+import { insertReturning } from '../lib/db-helpers.js';
+import { supabase } from '../../web/supabaseClient.js';
 import { getFamilyId, getUserProfile } from '../services/session-store.js';
 
 export class NestView extends LitElement {
@@ -190,24 +192,17 @@ export class NestView extends LitElement {
     this.loading = true;
     
     try {
-      const { data, error } = await db.insert('posts', {
+      const row = await insertReturning('posts', {
         family_id: familyId,
         content: this.feedText.trim(),
         author_id: userProfile.id
-      });
-
-      if (error) {
-        throw error;
-      }
+      }, supabase);
 
       this.feedText = '';
       ui.toastSuccess('Post shared with family!');
       
       // Emit event for other components to react
-      this.dispatchEvent(new CustomEvent('nest:post-created', {
-        detail: { post: data },
-        bubbles: true
-      }));
+      window.dispatchEvent(new CustomEvent('post-created', { detail: row }));
       
     } catch (error) {
       console.error('Failed to create post:', error);

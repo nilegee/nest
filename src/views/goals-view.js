@@ -7,6 +7,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
+import { waitForSession } from '../lib/session-store.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { ACT_KINDS } from '../constants.js';
 
@@ -306,8 +307,10 @@ export class GoalsView extends LitElement {
     this.goalsLoading = true;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
+    this.session = await waitForSession();
+    if (!this.session) return; // safety
     this.loadActs();
     this.loadCurrentGoal();
   }
@@ -428,7 +431,7 @@ export class GoalsView extends LitElement {
     const payload = {
       family_id: familyId,
       user_id: user.id,
-      kind,
+      kind: 'habit', // keep as habit
       points,
       meta
     };

@@ -7,6 +7,9 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
+import { insertReturning, deleteById } from '../lib/db-helpers.js';
+import { supabase } from '../../web/supabaseClient.js';
+import { waitForSession } from '../lib/session-store.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { formatDateTime } from '../utils/dates.js';
 
@@ -281,8 +284,10 @@ export class EventsView extends LitElement {
     this.editingEvent = null;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
+    this.session = await waitForSession();
+    if (!this.session) return; // safety
     this.loadEvents();
   }
 

@@ -5,6 +5,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { wireAuthListener, waitForSession, getSession } from './lib/session-store.js';
 import { WHITELISTED_EMAILS } from '../web/env.js';
 import { bootWarn } from './lib/log.js';
 
@@ -107,6 +108,11 @@ export class FnApp extends LitElement {
         search: window.location.search
       });
       
+      wireAuthListener();
+      
+      // Ensure a visible skeleton immediately
+      document.documentElement.classList.add('app-ready');
+      
       // Check for OAuth error in URL
       const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
@@ -175,6 +181,7 @@ export class FnApp extends LitElement {
       }
       
       console.log('User authorized, loading home view');
+      await waitForSession();
       
       // Clean OAuth hash after parsing
       if (location.hash && location.hash.startsWith('#access_token=')) {
@@ -220,6 +227,7 @@ export class FnApp extends LitElement {
   render() {
     if (this.loading) {
       return html`
+        <div class="header-skeleton"></div>
         <div class="loading">
           <div class="spinner"></div>
           <p>Loading FamilyNest...</p>
