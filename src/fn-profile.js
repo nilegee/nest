@@ -10,6 +10,9 @@ import { FamilyBot } from './fn-family-bot.js';
 import { getAllThemes, applyTheme } from './themes.js';
 import { showSuccess, showError } from './toast-helper.js';
 import * as db from './services/db.js';
+import { logger } from './utils/logger.js';
+
+const log = logger('fn-profile');
 
 export class FnProfile extends LitElement {
   static properties = {
@@ -324,7 +327,7 @@ export class FnProfile extends LitElement {
     try {
       // Guard against missing session
       if (!this.session?.user) {
-        console.warn('No session user for profile loading');
+        log.warn('No session user for profile loading');
         return;
       }
       
@@ -356,7 +359,7 @@ export class FnProfile extends LitElement {
     try {
       // Guard against missing session
       if (!this.session?.user) {
-        console.warn('No session user for wishlist loading');
+        log.warn('No session user for wishlist loading');
         return;
       }
       
@@ -384,7 +387,7 @@ export class FnProfile extends LitElement {
       
       if (!this.profile?.family_id) {
         // Optionally create/link default family if your backend supports it; otherwise just render empty state.
-        console.warn('No family_id available for saving preferences');
+        log.warn('No family_id available for saving preferences');
         showError('Profile not fully loaded. Please refresh and try again.');
         return;
       }

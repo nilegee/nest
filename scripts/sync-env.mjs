@@ -51,9 +51,19 @@ try {
     jsContent += `export const WHITELISTED_EMAILS = [${emailArray}];\n`;
   }
   
+  // Add ENV object with all variables including DEBUG flag
+  const ENV = {
+    SUPABASE_URL: vars.SUPABASE_URL,
+    SUPABASE_ANON_KEY: vars.SUPABASE_ANON_KEY,
+    WHITELISTED_EMAILS: vars.WHITELISTED_EMAILS,
+    DEBUG: String(vars.DEBUG ?? 'false') === 'true'
+  };
+  
+  jsContent += `\nexport const ENV = ${JSON.stringify(ENV, null, 2)};\n`;
+  
   // Write output file
   writeFileSync(outputFile, jsContent);
-  console.log('✅ Environment variables synced to web/env.js');
+  console.log('✅ Environment variables synced to web/env.js with DEBUG =', ENV.DEBUG);
   
 } catch (error) {
   console.error('❌ Error syncing environment:', error.message);

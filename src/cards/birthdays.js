@@ -3,6 +3,10 @@
  * Provides birthday data management with timezone-safe calculations
  */
 
+import { logger } from '../utils/logger.js';
+
+const log = logger('birthdays');
+
 // Seeded birthday data as requested
 const BIRTHDAYS = [
   { name: 'Mariem',   dob: '1990-01-30' },
@@ -10,6 +14,10 @@ const BIRTHDAYS = [
   { name: 'Yahya',    dob: '2017-10-23' },
   { name: 'Ghassan',  dob: '1981-08-31' }
 ];
+
+// Cache for user birthday queries to prevent repeated logs
+let lastUserId = null;
+let lastResult = null;
 
 /**
  * Parse date of birth as UTC to avoid timezone issues
@@ -169,7 +177,7 @@ export async function scheduleBirthdaysFor(userId) {
       .single();
 
     if (error || !profile.dob) {
-      console.log('No birthday found for user:', userId);
+      log.warn('No birthday found for user:', userId);
       return false;
     }
 

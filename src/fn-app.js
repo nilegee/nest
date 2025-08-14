@@ -8,6 +8,12 @@ import { supabase } from '../web/supabaseClient.js';
 import { wireAuthListener, waitForSession, getSession } from './lib/session-store.js';
 import { WHITELISTED_EMAILS } from '../web/env.js';
 import { bootWarn } from './lib/log.js';
+import { logger } from './utils/logger.js';
+import { initFamilyBotOnce } from './fn-family-bot.js';
+
+const log = logger('fn-app');
+let authListenerAttached = false;
+let schedulerStartedForSessionId = null;
 
 export class FnApp extends LitElement {
   static properties = {
@@ -102,7 +108,7 @@ export class FnApp extends LitElement {
    */
   async initAuth() {
     try {
-      console.log('Initializing auth...', {
+      log.info('Initializing auth...', {
         url: window.location.href,
         hash: window.location.hash,
         search: window.location.search
@@ -121,7 +127,7 @@ export class FnApp extends LitElement {
       const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
       
       if (error) {
-        console.error('OAuth error in URL:', error, errorDescription);
+        log.error('OAuth error in URL:', error, errorDescription);
         this.error = `Authentication failed: ${errorDescription || error}`;
         this.loading = false;
         return;
@@ -131,23 +137,26 @@ export class FnApp extends LitElement {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error('Session error:', sessionError);
+        log.error('Session error:', sessionError);
         throw sessionError;
       }
       
-      console.log('Initial session:', session?.user?.email || 'No session');
+      log.info('Initial session:', session?.user?.email || 'No session');
       
-      // Set up auth state change listener
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        await this.handleSessionChange(session);
-      });
+      // Set up auth state change listener (only once)
+      if (!authListenerAttached) {
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          log.info('Auth state changed:', event, session?.user?.email);
+          await this.handleSessionChange(session);
+        });
+        authListenerAttached = true;
+      }
       
       // Handle initial session
       await this.handleSessionChange(session);
       
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      log.error('Auth initialization error:', error);
       this.error = 'Failed to initialize authentication';
       this.loading = false;
     }
@@ -157,22 +166,22 @@ export class FnApp extends LitElement {
    * Handle session changes and validate user access
    */
   async handleSessionChange(session) {
-    console.log('Handling session change:', session?.user?.email || 'No session');
+    log.info('Handling session change:', session?.user?.email || 'No session');
     this.error = '';
     
     if (session?.user?.email) {
-      console.log('User authenticated:', session.user.email);
+      log.info('User authenticated:', session.user.email);
       
       // Check if user email is whitelisted
       if (!WHITELISTED_EMAILS.includes(session.user.email)) {
-        console.log('User not whitelisted:', session.user.email);
+        log.warn('User not whitelisted:', session.user.email);
         this.error = `Sorry, access is limited to family members only. Your email (${session.user.email}) is not authorized.`;
         
         // Sign out unauthorized user
         try {
           await supabase.auth.signOut();
         } catch (signOutError) {
-          console.error('Sign out error:', signOutError);
+          log.error('Sign out error:', signOutError);
         }
         
         this.session = null;
@@ -180,7 +189,16 @@ export class FnApp extends LitElement {
         return;
       }
       
-      console.log('User authorized, loading home view');
+      log.info('User authorized, loading home view');
+      
+      // Start FamilyBot once per session
+      const currentSessionId = session?.access_token ?? 'unknown';
+      if (schedulerStartedForSessionId !== currentSessionId) {
+        initFamilyBotOnce();
+        schedulerStartedForSessionId = currentSessionId;
+        log.info('FamilyBot started for session');
+      }
+      
       await waitForSession();
       
       // Refresh data after sign-in
@@ -191,7 +209,7 @@ export class FnApp extends LitElement {
         history.replaceState({}, document.title, location.pathname + location.search);
       }
     } else {
-      console.log('No authenticated user, showing landing page');
+      log.info('No authenticated user, showing landing page');
     }
     
     this.session = session;
