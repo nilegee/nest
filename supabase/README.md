@@ -121,6 +121,9 @@ Require extra review for changes to:
 - `families` (core organization)
 - `auth.*` (Supabase auth tables)
 
+### 📋 Review Process
+Use the **migration review checklist**: `docs/MIGRATION_REVIEW.md`
+
 ## Troubleshooting
 
 ### Pipeline Failures
