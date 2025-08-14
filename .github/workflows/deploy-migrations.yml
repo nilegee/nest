@@ -1,90 +1,38 @@
 name: Deploy Database Migrations
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'supabase/migrations/**'
-      - '.github/workflows/deploy-migrations.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'supabase/migrations/**'
+  workflow_dispatch:  # manual-only for now
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: true
 
 jobs:
-  deploy-migrations:
+  deploy:
+    name: Apply Supabase migrations
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Install Supabase CLI
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          npm i -g supabase@latest
-
-      - name: Verify DATABASE_URL secret
-        run: |
-          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
-            echo "❌ DATABASE_URL secret missing"; 
-            exit 1; 
-          fi
-          echo "✅ DATABASE_URL secret is configured"
+      - name: Verify Supabase CLI (no global install)
+        run: npx supabase --version
 
       - name: Apply migrations
         run: |
-          set -e
-          echo "🚀 Starting migration deployment..."
-          
-          # Apply all migrations in order using supabase db push
-          if [ -d "supabase/migrations" ] && [ "$(ls -A supabase/migrations)" ]; then
-            echo "📁 Found migrations directory with files"
-            ls -la supabase/migrations/
-            
-            # Apply each migration file in order
-            for migration_file in supabase/migrations/*.sql; do
-              if [ -f "$migration_file" ]; then
-                echo "▶️ Applying migration: $(basename "$migration_file")"
-                psql "${{ secrets.DATABASE_URL }}" -v ON_ERROR_STOP=1 -f "$migration_file"
-                echo "✅ Successfully applied: $(basename "$migration_file")"
-              fi
-            done
-            
-            echo "🎉 All migrations applied successfully!"
-          else
-            echo "ℹ️ No migrations found to apply"
-          fi
-
-      - name: Verify migrations (optional)
-        continue-on-error: true
-        run: |
-          echo "🔍 Running post-migration verification..."
-          if [ -f "scripts/verify-schema.sql" ]; then
-            psql "${{ secrets.DATABASE_URL }}" -v ON_ERROR_STOP=1 -f scripts/verify-schema.sql
-            echo "✅ Schema verification passed"
-          fi
-          
-          if [ -f "scripts/verify-rls.sql" ]; then
-            psql "${{ secrets.DATABASE_URL }}" -v ON_ERROR_STOP=1 -f scripts/verify-rls.sql
-            echo "✅ RLS verification passed"
-          fi
-
-      - name: Migration summary
-        if: always()
-        run: |
-          echo "📋 Migration Deployment Summary:"
-          echo "  ✅ Automation Verified — migrations applied in order"
-          if [ -d "supabase/migrations" ]; then
-            echo "  📁 Migrations processed:"
-            for migration_file in supabase/migrations/*.sql; do
-              if [ -f "$migration_file" ]; then
-                echo "    - $(basename "$migration_file")"
-              fi
-            done
-          fi
-          echo "  🎯 Pipeline completed successfully"
+          set -euo pipefail
+          echo "Starting Supabase migrations…"
+          npx supabase db push
+          echo "Automation Verified ✅ — migrations applied successfully"

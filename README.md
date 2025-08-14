@@ -148,7 +148,7 @@ Ensure `.env.local` is configured and `node ./scripts/sync-env.mjs` has generate
 **New schema changes use the migration-based workflow:**
 
 - **Location**: `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
-- **Deployment**: Automatic on push to `main` via GitHub Actions
+- **Deployment**: Manual-only via GitHub Actions for safety
 - **Rule**: Never apply manual database changes—commit and push only
 
 ### Adding Schema Changes
@@ -166,10 +166,22 @@ Ensure `.env.local` is configured and `node ./scripts/sync-env.mjs` has generate
    );
    ```
 
-3. Commit and push (triggers auto-deployment):
+3. Commit and push:
    ```bash
    git add supabase/migrations/ && git commit -m "Add new table" && git push
    ```
+
+4. **Deploy migrations manually**:
+   - **How to run**: Actions tab → Deploy Database Migrations → Run workflow → select `main`
+   - **Guardrails**: manual-only, concurrency protection, only for `main` branch
+   - **Later**: Switch to auto-trigger by adding:
+     ```yaml
+     on:
+       push:
+         branches: [ main ]
+         paths:
+           - "supabase/migrations/**"
+     ```
 
 **Complete documentation**: See `supabase/README.md`
 
