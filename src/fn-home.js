@@ -1707,6 +1707,12 @@ export class FnHome extends LitElement {
    */
   getRouteFromHash() {
     const hash = window.location.hash.slice(1);
+    
+    // Skip OAuth callback hashes (they contain access_token, refresh_token, etc.)
+    if (hash.includes('access_token') || hash.includes('refresh_token')) {
+      return null;
+    }
+    
     const [route, queryString] = hash.split('?');
     return route || null;
   }
