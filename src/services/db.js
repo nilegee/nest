@@ -1,0 +1,176 @@
+// @ts-check
+/**
+ * @fileoverview Database service layer for FamilyNest
+ * Thin wrapper around Supabase with error handling
+ */
+
+import { supabase } from '../../web/supabaseClient.js';
+
+/**
+ * Select data from a table with optional query parameters
+ * @param {string} table - Table name
+ * @param {Object} [query] - Query parameters for filtering
+ * @param {string} [select] - Columns to select (default: '*')
+ * @param {string} [orderBy] - Order by column
+ * @param {boolean} [ascending] - Sort direction (default: true)
+ * @returns {Promise<{data: any[], error: any}>}
+ */
+export async function select(table, query = {}, select = '*', orderBy = null, ascending = true) {
+  try {
+    let queryBuilder = supabase
+      .from(table)
+      .select(select);
+    
+    // Apply filters
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryBuilder = queryBuilder.eq(key, value);
+      }
+    });
+    
+    // Apply ordering
+    if (orderBy) {
+      queryBuilder = queryBuilder.order(orderBy, { ascending });
+    }
+    
+    const result = await queryBuilder;
+    
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+    
+    return { data: result.data || [], error: null };
+  } catch (error) {
+    console.error(`Database select error (${table}):`, error);
+    return { data: [], error };
+  }
+}
+
+/**
+ * Insert a new row into a table
+ * @param {string} table - Table name
+ * @param {Object} row - Data to insert
+ * @returns {Promise<{data: any, error: any}>}
+ */
+export async function insert(table, row) {
+  try {
+    const result = await supabase
+      .from(table)
+      .insert(row)
+      .select()
+      .single();
+    
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+    
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error(`Database insert error (${table}):`, error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Update rows in a table
+ * @param {string} table - Table name
+ * @param {Object} match - Conditions to match for update
+ * @param {Object} patch - Data to update
+ * @returns {Promise<{data: any[], error: any}>}
+ */
+export async function update(table, match, patch) {
+  try {
+    let queryBuilder = supabase
+      .from(table)
+      .update(patch);
+    
+    // Apply match conditions
+    Object.entries(match).forEach(([key, value]) => {
+      queryBuilder = queryBuilder.eq(key, value);
+    });
+    
+    const result = await queryBuilder.select();
+    
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+    
+    return { data: result.data || [], error: null };
+  } catch (error) {
+    console.error(`Database update error (${table}):`, error);
+    return { data: [], error };
+  }
+}
+
+/**
+ * Delete rows from a table
+ * @param {string} table - Table name
+ * @param {Object} match - Conditions to match for deletion
+ * @returns {Promise<{data: any[], error: any}>}
+ */
+export async function remove(table, match) {
+  try {
+    let queryBuilder = supabase
+      .from(table)
+      .delete();
+    
+    // Apply match conditions
+    Object.entries(match).forEach(([key, value]) => {
+      queryBuilder = queryBuilder.eq(key, value);
+    });
+    
+    const result = await queryBuilder.select();
+    
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+    
+    return { data: result.data || [], error: null };
+  } catch (error) {
+    console.error(`Database remove error (${table}):`, error);
+    return { data: [], error };
+  }
+}
+
+/**
+ * Execute a stored procedure/RPC call
+ * @param {string} functionName - Function name
+ * @param {Object} [params] - Function parameters
+ * @returns {Promise<{data: any, error: any}>}
+ */
+export async function rpc(functionName, params = {}) {
+  try {
+    const result = await supabase.rpc(functionName, params);
+    
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+    
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error(`Database RPC error (${functionName}):`, error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Get the authenticated user's profile from the me view
+ * @returns {Promise<{data: import('../types.d.ts').Profile|null, error: any}>}
+ */
+export async function getCurrentUserProfile() {
+  try {
+    const result = await supabase
+      .from('me')
+      .select('*')
+      .single();
+    
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+    
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Database getCurrentUserProfile error:', error);
+    return { data: null, error };
+  }
+}
