@@ -8,6 +8,16 @@ import { supabase } from '../web/supabaseClient.js';
 import { FamilyBot } from './fn-family-bot.js';
 import { showSuccess, showError } from './toast-helper.js';
 
+// TODO: Remove KIND_MAP once DB acts_kind_check is updated to new values
+const KIND_MAP = {
+  chore: 'chore_complete',
+  goal: 'goal_contrib',
+  habit: 'gentle_action',
+  note: 'kindness',
+  wishlist: 'gentle_action',
+  event: 'gentle_action'
+};
+
 export class FnChores extends LitElement {
   static properties = {
     session: { type: Object },
@@ -361,13 +371,16 @@ export class FnChores extends LitElement {
 
   async loadChores() {
     try {
+      // Use mapped kind for querying
+      const choreKind = KIND_MAP['chore'] || 'chore';
+      
       const { data, error } = await supabase
         .from('acts')
         .select(`
           *,
           assignee_profile:profiles!user_id(full_name)
         `)
-        .eq('kind', 'chore')
+        .eq('kind', choreKind)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -405,11 +418,14 @@ export class FnChores extends LitElement {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+      // Use mapped kind for querying
+      const choreKind = KIND_MAP['chore'] || 'chore';
+      
       const { data, error } = await supabase
         .from('acts')
         .select('created_at')
         .eq('user_id', userId)
-        .eq('kind', 'chore')
+        .eq('kind', choreKind)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
@@ -465,19 +481,26 @@ export class FnChores extends LitElement {
         .eq('user_id', this.session.user.id)
         .single();
 
+      // Prepare the payload and apply kind mapping
+      const payload = {
+        family_id: profile.family_id,
+        user_id: this.newChore.assignee,
+        kind: 'chore',
+        points: this.newChore.points,
+        meta: {
+          title: this.newChore.title,
+          status: 'todo',
+          assigned_by: this.session.user.id
+        }
+      };
+
+      if (payload.kind && KIND_MAP[payload.kind]) {
+        payload.kind = KIND_MAP[payload.kind];
+      }
+
       const { data, error } = await supabase
         .from('acts')
-        .insert({
-          family_id: profile.family_id,
-          user_id: this.newChore.assignee,
-          kind: 'chore',
-          points: this.newChore.points,
-          meta: {
-            title: this.newChore.title,
-            status: 'todo',
-            assigned_by: this.session.user.id
-          }
-        })
+        .insert(payload)
         .select(`
           *,
           assignee_profile:profiles!user_id(full_name)

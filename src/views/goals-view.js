@@ -10,6 +10,16 @@ import * as ui from '../services/ui.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { ACT_KINDS } from '../constants.js';
 
+// TODO: Remove KIND_MAP once DB acts_kind_check is updated to new values
+const KIND_MAP = {
+  chore: 'chore_complete',
+  goal: 'goal_contrib',
+  habit: 'gentle_action',
+  note: 'kindness',
+  wishlist: 'gentle_action',
+  event: 'gentle_action'
+};
+
 export class GoalsView extends LitElement {
   static styles = css`
     :host {
@@ -414,13 +424,20 @@ export class GoalsView extends LitElement {
       throw new Error(`Invalid act kind: ${kind}. Must be one of: ${ACT_KINDS.join(', ')}`);
     }
     
-    const { data, error } = await db.insert('acts', {
+    // Prepare the payload and apply kind mapping
+    const payload = {
       family_id: familyId,
       user_id: user.id,
       kind,
       points,
       meta
-    });
+    };
+
+    if (payload.kind && KIND_MAP[payload.kind]) {
+      payload.kind = KIND_MAP[payload.kind];
+    }
+    
+    const { data, error } = await db.insert('acts', payload);
 
     if (error) {
       throw error;
