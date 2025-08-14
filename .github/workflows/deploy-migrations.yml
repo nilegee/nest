@@ -15,10 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install psql + DNS tools
+      - name: Install PostgreSQL client (and DNS tools)
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client dnsutils net-tools
+          sudo apt-get install -y postgresql-client dnsutils
 
       - name: Sanity check secret and sanitize URL
         id: sanitize
@@ -52,26 +52,49 @@ jobs:
           echo "Using URL (redacted): $SAFE"
           echo "Parsed host: $HOST"
 
-      - name: Resolve IPv4 (multiple fallbacks) and export PGHOSTADDR
+      - name: Resolve IPv4 (robust, non-fatal)
         shell: bash
+        env:
+          DB_HOST: ${{ env.DB_HOST }}
         run: |
           set -euo pipefail
-          IPV4="$(getent ahostsv4 "$DB_HOST" | awk 'NR==1{print $1}')"
-          if [[ -z "${IPV4}" ]]; then IPV4="$(dig +short A "$DB_HOST" | head -n1)"; fi
-          if [[ -z "${IPV4}" ]]; then IPV4="$(dig @1.1.1.1 +short A "$DB_HOST" | head -n1)"; fi
-          if [[ -z "${IPV4}" ]]; then IPV4="$(dig @8.8.8.8 +short A "$DB_HOST" | head -n1)"; fi
-          if [[ -z "${IPV4}" ]]; then
-            echo "ERROR: No IPv4 A record found for $DB_HOST via any resolver." >&2
-            exit 65
+          host="${DB_HOST}"
+
+          ipv4=""
+          # Try getent first; don't fail the step if it returns non-zero
+          tmpfile="$(mktemp)"
+          getent ahostsv4 "$host" 2>/dev/null | awk 'NR==1{print $1; exit}' > "$tmpfile" || true
+          if [[ -s "$tmpfile" ]]; then
+            ipv4="$(cat "$tmpfile")"
           fi
-          echo "Resolved IPv4: $IPV4"
-          echo "PGHOSTADDR=$IPV4" >> "$GITHUB_ENV"
+
+          # Fallback to dig if needed
+          if [[ -z "$ipv4" ]] && command -v dig >/dev/null 2>&1; then
+            ipv4="$(dig +short A "$host" | head -n1 || true)"
+          fi
+
+          # Last-chance grep from generic getent hosts
+          if [[ -z "$ipv4" ]] && command -v getent >/dev/null 2>&1; then
+            ipv4="$(getent hosts "$host" | awk '{print $1}' | grep -E '^[0-9]+\.' | head -n1 || true)"
+          fi
+
+          if [[ -n "$ipv4" ]]; then
+            echo "Resolved IPv4: $ipv4"
+            echo "PGHOSTADDR=$ipv4" >> "$GITHUB_ENV"
+          else
+            echo "WARN: Could not resolve an IPv4 A record. Proceeding with hostname."
+            # No export of PGHOSTADDR; psql will use the hostname and system resolver.
+          fi
 
       - name: Connectivity probe (forced IPv4)
         shell: bash
         run: |
           set -euo pipefail
-          PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
+          if [[ -n "${PGHOSTADDR:-}" ]]; then
+            PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
+          else
+            psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
+          fi
 
       - name: Preflight – confirm schema file exists
         shell: bash
@@ -79,23 +102,34 @@ jobs:
           set -euo pipefail
           test -f supabase/schema_inferred.sql || { echo "ERROR: supabase/schema_inferred.sql not found"; ls -R; exit 66; }
           echo "Found schema file: supabase/schema_inferred.sql (size $(wc -c < supabase/schema_inferred.sql) bytes)"
-          echo "DB host: $DB_HOST | IPv4: $PGHOSTADDR"
+          echo "DB host: $DB_HOST | IPv4: ${PGHOSTADDR:-"(hostname fallback)"}"
 
       - name: Ensure required extensions
         shell: bash
         run: |
           set -euo pipefail
-          PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
+          if [[ -n "${PGHOSTADDR:-}" ]]; then
+            PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
+          else
+            psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
+          fi
 
       - name: Apply schema (verbose, echo errors; IPv4)
         shell: bash
         run: |
           set -euo pipefail
-          PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" \
-            --echo-errors --echo-queries \
-            -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
-            -f supabase/schema_inferred.sql
+          if [[ -n "${PGHOSTADDR:-}" ]]; then
+            PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" \
+              --echo-errors --echo-queries \
+              -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+              -f supabase/schema_inferred.sql
+          else
+            psql "$SANITIZED_URL" \
+              --echo-errors --echo-queries \
+              -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+              -f supabase/schema_inferred.sql
+          fi
 
       - name: Success marker
         if: success()
-        run: echo "✅ Schema applied successfully over IPv4."
+        run: echo "✅ Schema applied successfully (hostname or IPv4)."
