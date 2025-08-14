@@ -1287,6 +1287,13 @@ export class FnHome extends LitElement {
       }
       
       this.userProfile = data;
+      
+      // Signal that app is ready with family context for proactive features
+      if (data?.family_id) {
+        window.dispatchEvent(new CustomEvent('nest:app-ready', { 
+          detail: { familyId: data.family_id } 
+        }));
+      }
     } catch (error) {
       showError('Failed to load profile');
     }
