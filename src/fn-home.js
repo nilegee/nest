@@ -758,3 +758,5 @@ export class FnHome extends LitElement {
 }
 
 customElements.define('fn-home', FnHome);
+
+customElements.define('fn-home', FnHome);
