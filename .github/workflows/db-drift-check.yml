@@ -1,0 +1,43 @@
+name: Database Drift Check
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "supabase/migrations/**/*.sql"
+      - "supabase/migrations/*.sql"
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        run: |
+          curl -sL https://supabase.com/cli/install/linux | sh
+          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
+
+      - name: Detect drift (read-only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -e
+          shopt -s nullglob
+          FILES=(supabase/migrations/*.sql supabase/migrations/**/*.sql)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No migrations in repo yet — skipping drift check this time."
+            exit 0
+          fi
+          DIFF_OUTPUT="$(supabase db diff --db-url "$DATABASE_URL" || true)"
+          echo "$DIFF_OUTPUT"
+          if echo "$DIFF_OUTPUT" | grep -qE '^(CREATE|ALTER|DROP|COMMENT|GRANT)'; then
+            echo "::error ::Schema drift detected."
+            echo "Run locally to generate a migration:"
+            echo "  supabase db diff --db-url \"\$DATABASE_URL\" -f \$(date +%Y%m%d%H%M%S)_change.sql"
+            echo "Review, commit, push, and re-run the PR."
+            exit 1
+          else
+            echo "No drift ✅"
+          fi
