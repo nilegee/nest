@@ -1,5 +1,4 @@
-name: Deploy Supabase Schema (IPv4)
-
+name: Deploy Supabase Schema (IPv4, robust)
 on:
   workflow_dispatch:
   push:
@@ -7,7 +6,6 @@ on:
     paths:
       - "supabase/**.sql"
       - ".github/workflows/deploy-migrations.yml"
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -17,10 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install psql client + dnsutils
+      - name: Install psql + DNS tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client dnsutils
+          sudo apt-get install -y postgresql-client dnsutils net-tools
 
       - name: Sanitize DATABASE_URL
         id: sanitize
@@ -28,32 +26,37 @@ jobs:
         run: |
           set -euo pipefail
           URL="$RAW_DATABASE_URL"
-          # strip wrapping quotes if any
-          URL="${URL%\"}"; URL="${URL#\"}"
-          URL="${URL%\'}"; URL="${URL#\'}"
-          # normalize sslmode=require
+          URL="${URL%\"}"; URL="${URL#\"}"; URL="${URL%\'}"; URL="${URL#\'}"
           URL="${URL//sslmode=\"require\"/sslmode=require}"
           URL="${URL//sslmode=%22require%22/sslmode=require}"
           if [[ "$URL" != *"sslmode="* ]]; then
             if [[ "$URL" == *"?"* ]]; then URL="${URL}&sslmode=require"; else URL="${URL}?sslmode=require"; fi
           fi
           echo "SANITIZED_URL=$URL" >> $GITHUB_ENV
-          # extract host for A-record lookup
-          HOST="$(python3 -c "import sys, urllib.parse as u; url = u.urlsplit(sys.argv[1]); print(url.hostname or '')" "$URL")"
+          HOST="$(python3 - <<'PY'
+          import sys, urllib.parse as u
+          url = u.urlsplit(sys.argv[1]); print(url.hostname or "")
+          PY
+          "$URL")"
           echo "DB_HOST=$HOST" >> $GITHUB_ENV
           SAFE="${URL//postgresql:\/\/postgres:*@/postgresql:\/\/postgres:***@}"
           echo "Using URL (redacted): $SAFE"
 
-      - name: Resolve IPv4 and export PGHOSTADDR
+      - name: Resolve IPv4 (multiple fallbacks) and export PGHOSTADDR
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "${DB_HOST:-}" ]]; then
-            echo "ERROR: Could not parse DB host from DATABASE_URL"; exit 65
-          fi
-          IPV4="$(dig +short A "$DB_HOST" | head -n1)"
-          if [[ -z "$IPV4" ]]; then
-            echo "ERROR: No IPv4 A record found for $DB_HOST"; exit 65
+          if [[ -z "${DB_HOST:-}" ]]; then echo "ERROR: Could not parse DB host"; exit 65; fi
+          # Try glibc NSS first
+          IPV4="$(getent ahostsv4 "$DB_HOST" | awk 'NR==1{print $1}')"
+          # Fallback to system resolver
+          if [[ -z "${IPV4}" ]]; then IPV4="$(dig +short A "$DB_HOST" | head -n1)"; fi
+          # Fallback to Cloudflare
+          if [[ -z "${IPV4}" ]]; then IPV4="$(dig @1.1.1.1 +short A "$DB_HOST" | head -n1)"; fi
+          # Fallback to Google
+          if [[ -z "${IPV4}" ]]; then IPV4="$(dig @8.8.8.8 +short A "$DB_HOST" | head -n1)"; fi
+          if [[ -z "${IPV4}" ]]; then
+            echo "ERROR: No IPv4 A record found for $DB_HOST via any resolver"; exit 65
           fi
           echo "Resolved IPv4: $IPV4"
           echo "PGHOSTADDR=$IPV4" >> $GITHUB_ENV
