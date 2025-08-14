@@ -1,18 +1,16 @@
+---
 name: Deploy Supabase Schema
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - "supabase/**.sql"
-      - ".github/workflows/deploy-migrations.yml"
+      - "supabase/**/*.sql"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,17 +20,44 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client
 
+      - name: Sanitize DATABASE_URL
+        run: |
+          set -e
+          RAW_DATABASE_URL="${{ secrets.DATABASE_URL }}"
+
+          # Strip surrounding quotes from entire URL
+          SANITIZED_URL=$(echo "$RAW_DATABASE_URL" | sed 's/^"\(.*\)"$/\1/')
+
+          # Replace sslmode="require" or URL-encoded quotes with sslmode=require
+          SANITIZED_URL=$(echo "$SANITIZED_URL" | \
+            sed 's/sslmode=%22require%22/sslmode=require/g')
+          SANITIZED_URL=$(echo "$SANITIZED_URL" | \
+            sed 's/sslmode="require"/sslmode=require/g')
+
+          # Append sslmode=require if missing
+          if [[ "$SANITIZED_URL" != *"sslmode="* ]]; then
+            if [[ "$SANITIZED_URL" == *"?"* ]]; then
+              SANITIZED_URL="${SANITIZED_URL}&sslmode=require"
+            else
+              SANITIZED_URL="${SANITIZED_URL}?sslmode=require"
+            fi
+          fi
+
+          echo "SANITIZED_URL=$SANITIZED_URL" >> $GITHUB_ENV
+
       - name: Connectivity probe
         run: |
           set -e
-          psql "$DATABASE_URL" -Atqc "select 'DB reachable' as ok, current_user, current_date;"
+          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c '\conninfo'
 
       - name: Ensure required extensions
         run: |
           set -e
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
+          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 \
+            -c 'create extension if not exists "pgcrypto";'
 
       - name: Apply schema
         run: |
           set -e
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/schema_inferred.sql
+          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 \
+            -f supabase/schema_inferred.sql
