@@ -345,11 +345,24 @@ export class FnNotes extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    // Guard against missing session
+    if (!this.session?.user) {
+      console.warn('No session available in notes component');
+      this.loading = false;
+      return;
+    }
     await this.loadNotes();
   }
 
   async loadNotes() {
     try {
+      // Guard against missing session
+      if (!this.session?.user) {
+        console.warn('No session user for notes loading');
+        this.loading = false;
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('notes')
         .select('*')
@@ -385,12 +398,23 @@ export class FnNotes extends LitElement {
       return;
     }
 
+    // Guard against missing session
+    if (!this.session?.user) {
+      showError('Session not available. Please refresh and try again.');
+      return;
+    }
+
     try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('family_id')
         .eq('user_id', this.session.user.id)
         .single();
+
+      if (!profile?.family_id) {
+        showError('Profile not fully loaded. Please refresh and try again.');
+        return;
+      }
 
       const noteData = {
         family_id: profile.family_id,
