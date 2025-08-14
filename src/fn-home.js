@@ -1890,7 +1890,6 @@ export class FnHome extends LitElement {
       </div>
     `;
   }
-  }
 
   /**
    * Render Chores view
@@ -2100,7 +2099,6 @@ export class FnHome extends LitElement {
     // Lazy load component
     importComponent('fn-profile');
     return html`<fn-profile .session=${this.session}></fn-profile>`;
-  }
   }
 
   /**
