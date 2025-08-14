@@ -7,6 +7,22 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 import { getStandardCards } from './cards/nest-cards.js';
 import { showSuccess, showError, showLoading } from './toast-helper.js';
+import { FamilyBot } from './fn-family-bot.js';
+import { scheduleBirthdaysFor, getUpcomingBirthdays } from './cards/birthdays.js';
+
+// Lazy import components
+async function importComponent(name) {
+  const components = {
+    'fn-profile': () => import('./fn-profile.js'),
+    'fn-chores': () => import('./fn-chores.js'),
+    'fn-notes': () => import('./fn-notes.js'),
+    'fn-insights': () => import('./fn-insights.js')
+  };
+  
+  if (components[name]) {
+    await components[name]();
+  }
+}
 
 export class FnHome extends LitElement {
   static properties = {
@@ -912,6 +928,8 @@ export class FnHome extends LitElement {
   updated(changedProperties) {
     if (changedProperties.has('session') && this.session?.user) {
       this.initializeData();
+      // Initialize FamilyBot scheduler on login
+      FamilyBot.initScheduler(this);
     }
   }
 
@@ -1204,8 +1222,7 @@ export class FnHome extends LitElement {
       if (success) {
         this.feedText = '';
       } else {
-        // Show error message to user
-        console.error('Failed to create post');
+        showError('Failed to create post');
       }
     }
   }
@@ -1217,7 +1234,19 @@ export class FnHome extends LitElement {
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.error('Sign out error:', error);
+      showError('Sign out failed');
+    }
+  }
+
+  /**
+   * Ask FamilyBot for help
+   */
+  async askFamilyBot() {
+    try {
+      const prefs = await FamilyBot.getMemberPrefs(this.session.user.id);
+      await FamilyBot.promptUserAction(this.session.user.id, 'general_help');
+    } catch (error) {
+      showError('Unable to contact FamilyBot right now');
     }
   }
 
@@ -1234,8 +1263,11 @@ export class FnHome extends LitElement {
       await this.loadBirthdays();
       await this.loadActs();
       await this.loadCurrentGoal();
+      
+      // Schedule birthday reminders for the user
+      await scheduleBirthdaysFor(this.session.user.id);
     } catch (error) {
-      console.error('Failed to initialize data:', error);
+      showError('Failed to load family data');
     }
   }
 
@@ -1250,13 +1282,13 @@ export class FnHome extends LitElement {
         .single();
       
       if (error) {
-        console.error('Error loading user profile:', error);
+        showError('Error loading profile');
         return;
       }
       
       this.userProfile = data;
     } catch (error) {
-      console.error('Failed to load user profile:', error);
+      showError('Failed to load profile');
     }
   }
 
@@ -1364,101 +1396,14 @@ export class FnHome extends LitElement {
    * Process raw birthday data into format expected by birthday card
    */
   processBirthdaysForCard(profiles) {
-    const now = new Date();
-    
-    const processed = profiles.map(profile => {
-      const birthDate = this.parseUTCDate(profile.dob);
-      const { nextOccurrence, turningAge } = this.getNextOccurrence(birthDate, now);
-      const daysUntil = this.getDaysUntil(nextOccurrence, now);
-      
-      return {
-        name: profile.full_name,
-        dob: profile.dob,
-        birthDate,
-        nextOccurrence,
-        turningAge,
-        daysUntil,
-        avatar: this.getAvatar(profile.full_name),
-        dateText: this.formatBirthdayDate(nextOccurrence),
-        countdownText: this.formatCountdown(daysUntil),
-        isToday: daysUntil === 0
-      };
-    });
-    
-    // Sort by days until next occurrence and limit to 3
-    return processed
-      .sort((a, b) => a.daysUntil - b.daysUntil)
-      .slice(0, 3);
-  }
+    // Convert profiles to the format expected by getUpcomingBirthdays
+    const birthdayData = profiles.map(profile => ({
+      name: profile.full_name,
+      dob: profile.dob
+    }));
 
-  /**
-   * Parse date of birth as UTC to avoid timezone issues
-   */
-  parseUTCDate(dobString) {
-    const [year, month, day] = dobString.split('-').map(Number);
-    return new Date(Date.UTC(year, month - 1, day));
-  }
-
-  /**
-   * Get the next occurrence of a birthday
-   */
-  getNextOccurrence(birthDate, now = new Date()) {
-    const currentYear = now.getUTCFullYear();
-    const birthMonth = birthDate.getUTCMonth();
-    const birthDay = birthDate.getUTCDate();
-    const birthYear = birthDate.getUTCFullYear();
-    
-    let nextOccurrence = new Date(Date.UTC(currentYear, birthMonth, birthDay));
-    
-    if (nextOccurrence < now) {
-      nextOccurrence = new Date(Date.UTC(currentYear + 1, birthMonth, birthDay));
-    }
-    
-    const turningAge = nextOccurrence.getUTCFullYear() - birthYear;
-    
-    return { nextOccurrence, turningAge };
-  }
-
-  /**
-   * Calculate days until a date
-   */
-  getDaysUntil(targetDate, now = new Date()) {
-    const diffTime = targetDate.getTime() - now.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }
-
-  /**
-   * Format countdown text for display
-   */
-  formatCountdown(daysUntil) {
-    if (daysUntil === 0) return 'Today';
-    if (daysUntil === 1) return 'in 1 day';
-    return `in ${daysUntil} days`;
-  }
-
-  /**
-   * Format birthday date for display
-   */
-  formatBirthdayDate(date) {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      timeZone: 'UTC'
-    });
-  }
-
-  /**
-   * Get avatar emoji based on name
-   */
-  getAvatar(name) {
-    const avatars = {
-      'Mariem': '👩',
-      'Yazid': '👦',
-      'Yahya': '👶',
-      'Ghassan': '👨'
-    };
-    // Default to first letter of name if not in predefined list
-    return avatars[name] || name.charAt(0).toUpperCase();
+    // Use centralized birthday logic
+    return getUpcomingBirthdays(new Date(), birthdayData).slice(0, 3);
   }
 
   /**
@@ -1761,14 +1706,26 @@ export class FnHome extends LitElement {
    * Get current route from window location hash
    */
   getRouteFromHash() {
-    return window.location.hash.slice(1) || null;
+    const hash = window.location.hash.slice(1);
+    const [route, queryString] = hash.split('?');
+    return route || null;
+  }
+
+  /**
+   * Get template parameter from hash
+   */
+  getTemplateFromHash() {
+    const hash = window.location.hash;
+    const urlParams = new URLSearchParams(hash.split('?')[1] || '');
+    return urlParams.get('template');
   }
 
   /**
    * Navigate to a specific route
    */
-  navigateToRoute(route) {
-    window.location.hash = route;
+  navigateToRoute(route, template = null) {
+    const url = template ? `${route}?template=${template}` : route;
+    window.location.hash = url;
   }
 
   /**
@@ -1783,17 +1740,19 @@ export class FnHome extends LitElement {
    * Render the main content based on current route
    */
   renderRouteContent() {
+    const template = this.getTemplateFromHash();
+    
     switch (this.currentRoute) {
       case 'feed':
-        return this.renderFeedView();
+        return this.renderFeedView(template);
       case 'chores':
         return this.renderChoresView();
       case 'events':
-        return this.renderEventsView();
+        return this.renderEventsView(template);
       case 'goals':
         return this.renderGoalsView();
       case 'notes':
-        return this.renderNotesView();
+        return this.renderNotesView(template);
       case 'profile':
         return this.renderProfileView();
       case 'insights':
@@ -1853,7 +1812,25 @@ export class FnHome extends LitElement {
   /**
    * Render Feed view
    */
-  renderFeedView() {
+  /**
+   * Render Feed view
+   */
+  renderFeedView(template) {
+    // Handle template prefilling
+    if (template && !this.feedText) {
+      const templates = {
+        'gaming-highlight': 'Just had an amazing gaming moment! ',
+        'gratitude-share': '🙏 Today I\'m grateful for: ',
+        'weekly-highlight': '⭐ This week\'s family highlight: ',
+        'family-micro-activity-20': 'Quick family activity idea: '
+      };
+      
+      if (templates[template]) {
+        this.feedText = templates[template];
+        this.requestUpdate();
+      }
+    }
+
     return html`
       <div class="page-header">
         <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
@@ -1865,6 +1842,9 @@ export class FnHome extends LitElement {
         <div class="composer-header">
           <iconify-icon icon="material-symbols:edit"></iconify-icon>
           <h3 class="composer-title">Share with Family</h3>
+          ${template ? html`
+            <span class="template-indicator">Template: ${template}</span>
+          ` : ''}
         </div>
         <textarea 
           class="composer-textarea"
@@ -1910,28 +1890,15 @@ export class FnHome extends LitElement {
       </div>
     `;
   }
+  }
 
   /**
    * Render Chores view
    */
   renderChoresView() {
-    return html`
-      <div class="page-header">
-        <iconify-icon icon="material-symbols:checklist"></iconify-icon>
-        <h1 id="main-content" tabindex="-1">Family Chores</h1>
-      </div>
-      <div class="route-placeholder">
-        <h3>📋 Family Chores & Responsibilities</h3>
-        <p>This feature will help organize and track family chores with gentle accountability. Each family member will be able to:</p>
-        <ul>
-          <li>View assigned daily and weekly tasks</li>
-          <li>Mark chores as complete</li>
-          <li>Earn appreciation points for contributions</li>
-          <li>See family progress toward shared goals</li>
-        </ul>
-        <p><strong>Coming Soon:</strong> Integration with the family points system and celebration features.</p>
-      </div>
-    `;
+    // Lazy load component
+    importComponent('fn-chores');
+    return html`<fn-chores .session=${this.session}></fn-chores>`;
   }
 
   /**
@@ -2117,74 +2084,35 @@ export class FnHome extends LitElement {
   /**
    * Render Notes view
    */
-  renderNotesView() {
-    return html`
-      <div class="page-header">
-        <iconify-icon icon="material-symbols:note"></iconify-icon>
-        <h1 id="main-content" tabindex="-1">Family Notes</h1>
-      </div>
-      <div class="route-placeholder">
-        <h3>📝 Shared Family Notes & Lists</h3>
-        <p>Keep important family information organized and accessible to everyone. This space will include:</p>
-        <ul>
-          <li>Shopping lists and meal planning notes</li>
-          <li>Important reminders and announcements</li>
-          <li>Memory keeping and family stories</li>
-          <li>Collaborative planning documents</li>
-          <li>Emergency contacts and information</li>
-        </ul>
-        <p><strong>Features in development:</strong> Real-time collaboration, category organization, and search functionality.</p>
-      </div>
-    `;
+  /**
+   * Render Notes view
+   */
+  renderNotesView(template) {
+    // Lazy load component
+    importComponent('fn-notes');
+    return html`<fn-notes .session=${this.session} .selectedTemplate=${template}></fn-notes>`;
   }
 
   /**
    * Render Profile view
    */
   renderProfileView() {
-    return html`
-      <div class="page-header">
-        <iconify-icon icon="material-symbols:person"></iconify-icon>
-        <h1 id="main-content" tabindex="-1">Profile</h1>
-      </div>
-      <div class="route-placeholder">
-        <h3>👨‍👩‍👧‍👦 Family Profile Management</h3>
-        <p>Manage your family member profiles and account settings. This section will allow you to:</p>
-        <ul>
-          <li>Update profile information and photos</li>
-          <li>Set notification preferences</li>
-          <li>Manage family member access and roles</li>
-          <li>Configure privacy and sharing settings</li>
-          <li>View account activity and security options</li>
-        </ul>
-        <p><strong>Current Status:</strong> Basic profile data is managed through your authentication provider. Enhanced profile management is planned.</p>
-      </div>
-    `;
+    // Lazy load component
+    importComponent('fn-profile');
+    return html`<fn-profile .session=${this.session}></fn-profile>`;
+  }
   }
 
   /**
    * Render Insights view
    */
+  /**
+   * Render Insights view
+   */
   renderInsightsView() {
-    return html`
-      <div class="page-header">
-        <iconify-icon icon="material-symbols:insights"></iconify-icon>
-        <h1 id="main-content" tabindex="-1">Family Insights</h1>
-      </div>
-      <div class="route-placeholder">
-        <h3>📊 Family Activity & Progress Insights</h3>
-        <p>Discover meaningful patterns in your family's shared journey. This dashboard will provide:</p>
-        <ul>
-          <li>Goal progress tracking and celebration milestones</li>
-          <li>Activity trends and engagement patterns</li>
-          <li>Gratitude and kindness statistics</li>
-          <li>Communication frequency and quality metrics</li>
-          <li>Personal growth indicators for each family member</li>
-        </ul>
-        <p><strong>Data Privacy:</strong> All insights respect your family's privacy and are never shared outside your family circle.</p>
-        <p><strong>Next Steps:</strong> Analytics engine development and visualization design are in progress.</p>
-      </div>
-    `;
+    // Lazy load component
+    importComponent('fn-insights');
+    return html`<fn-insights .session=${this.session}></fn-insights>`;
   }
 
   render() {
@@ -2282,10 +2210,11 @@ export class FnHome extends LitElement {
           </aside>
         ` : ''}
 
-        <!-- Mobile Floating Add Button -->
-        ${this.isMobile ? html`
-          <button class="floating-add" aria-label="Quick add">
-            <iconify-icon icon="material-symbols:add"></iconify-icon>
+        <!-- Mobile Floating Ask Bot Button -->
+        ${this.isMobile && this.currentRoute !== 'landing' ? html`
+          <button class="floating-add" aria-label="Ask ${this.userProfile?.bot_name || 'FamilyBot'}" 
+                  @click=${this.askFamilyBot}>
+            <iconify-icon icon="material-symbols:smart-toy"></iconify-icon>
           </button>
         ` : ''}
       </div>
