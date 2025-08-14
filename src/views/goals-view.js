@@ -8,6 +8,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
+import { ACT_KINDS } from '../constants.js';
 
 export class GoalsView extends LitElement {
   static styles = css`
@@ -406,6 +407,11 @@ export class GoalsView extends LitElement {
     
     if (!familyId || !user) {
       throw new Error('No family context or user');
+    }
+    
+    // Validate kind against allowed values
+    if (!ACT_KINDS.includes(kind)) {
+      throw new Error(`Invalid act kind: ${kind}. Must be one of: ${ACT_KINDS.join(', ')}`);
     }
     
     const { data, error } = await db.insert('acts', {

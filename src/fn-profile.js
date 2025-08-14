@@ -8,6 +8,7 @@ import { supabase } from '../web/supabaseClient.js';
 import { FamilyBot } from './fn-family-bot.js';
 import { getAllThemes, applyTheme } from './themes.js';
 import { showSuccess, showError } from './toast-helper.js';
+import * as db from './services/db.js';
 
 export class FnProfile extends LitElement {
   static properties = {
@@ -132,6 +133,35 @@ export class FnProfile extends LitElement {
       background: var(--theme-bg-secondary, #f8fafc);
       border-radius: var(--theme-radius, 8px);
       margin-bottom: 8px;
+    }
+
+    .wishlist-add {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .wishlist-add input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--theme-border, #e2e8f0);
+      border-radius: var(--theme-radius, 8px);
+      font-size: 14px;
+    }
+
+    .wishlist-add button {
+      padding: 8px 16px;
+      background: var(--theme-primary, #6366f1);
+      color: white;
+      border: none;
+      border-radius: var(--theme-radius, 8px);
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .wishlist-add button:hover {
+      background: var(--theme-primary-hover, #5855eb);
     }
 
     .wishlist-content {
@@ -280,6 +310,12 @@ export class FnProfile extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    // Guard against missing session
+    if (!this.session?.user) {
+      console.warn('No session available in profile component');
+      return;
+    }
+    
     await this.loadProfile();
     await this.loadPreferences();
     await this.loadWishlist();
@@ -288,6 +324,12 @@ export class FnProfile extends LitElement {
 
   async loadProfile() {
     try {
+      // Guard against missing session
+      if (!this.session?.user) {
+        console.warn('No session user for profile loading');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -314,6 +356,12 @@ export class FnProfile extends LitElement {
 
   async loadWishlist() {
     try {
+      // Guard against missing session
+      if (!this.session?.user) {
+        console.warn('No session user for wishlist loading');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('wishlist')
         .select('*')
@@ -331,6 +379,18 @@ export class FnProfile extends LitElement {
 
   async savePreferences() {
     try {
+      // Guard against missing session or profile
+      if (!this.session?.user) {
+        throw new Error('No session user available');
+      }
+      
+      if (!this.profile?.family_id) {
+        // Optionally create/link default family if your backend supports it; otherwise just render empty state.
+        console.warn('No family_id available for saving preferences');
+        showError('Profile not fully loaded. Please refresh and try again.');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('preferences')
         .upsert({
@@ -394,34 +454,51 @@ export class FnProfile extends LitElement {
     this.previewMessage = message.replace('FamilyBot', this.preferences.bot_name);
   }
 
-  async addWishlistItem() {
-    const title = prompt('What would you like to add to your wishlist?');
-    if (!title?.trim()) return;
+  handleWishlistKeydown(e) {
+    if (e.key === 'Enter') {
+      this.handleAddWishlist();
+    }
+  }
 
-    const description = prompt('Any details? (optional)');
-    const priority = parseInt(prompt('Priority (1-5)?', '3')) || 3;
-
+  async handleAddWishlist() {
+    const el = this.renderRoot?.querySelector?.('#wl-input');
+    const item = (el?.value || '').trim();
+    if (!item) {
+      el?.focus();
+      return;
+    }
+    
+    // Optimistic add
+    const temp = { id: `temp_${Date.now()}`, title: item, description: null, priority: 3 };
+    this.wishlist = [temp, ...this.wishlist];
+    el.value = '';
+    
     try {
-      const { data, error } = await supabase
-        .from('wishlist')
-        .insert({
-          family_id: this.profile.family_id,
-          user_id: this.session.user.id,
-          title: title.trim(),
-          description: description?.trim() || null,
-          priority: Math.max(1, Math.min(5, priority))
-        })
-        .select()
-        .single();
-
+      const { data, error } = await db.insert('wishlist', {
+        user_id: this.session.user.id,
+        family_id: this.profile?.family_id,
+        title: item,
+        priority: 3
+      });
+      
       if (error) throw error;
       
-      this.wishlist = [data, ...this.wishlist];
+      // Swap temp with real
+      this.wishlist = this.wishlist.map(x => x.id === temp.id ? data[0] : x);
       showSuccess('Added to wishlist!');
-    } catch (error) {
-      console.error('Failed to add wishlist item:', error);
+    } catch (e) {
+      this.wishlist = this.wishlist.filter(x => x.id !== temp.id);
+      console.error('Failed to add wishlist item:', e);
       showError('Failed to add wishlist item');
+      el?.focus();
     }
+  }
+
+  // Keep the old method for backward compatibility but simplify it
+  async addWishlistItem() {
+    // For now, just focus the input to encourage using the new form
+    const el = this.renderRoot?.querySelector?.('#wl-input');
+    el?.focus();
   }
 
   async removeWishlistItem(item) {
@@ -589,10 +666,13 @@ export class FnProfile extends LitElement {
         <h2 class="section-title">
           <iconify-icon icon="material-symbols:favorite"></iconify-icon>
           Wishlist
-          <button class="btn btn-secondary btn-icon" @click=${this.addWishlistItem}>
-            <iconify-icon icon="material-symbols:add"></iconify-icon>
-          </button>
         </h2>
+
+        <!-- Add Wishlist Item Form -->
+        <div class="wishlist-add">
+          <input id="wl-input" type="text" placeholder="Add to wishlist..." aria-label="Wishlist item" @keydown=${this.handleWishlistKeydown}>
+          <button @click=${() => this.handleAddWishlist()}>Add</button>
+        </div>
 
         ${this.wishlist.length === 0 ? html`
           <p>Your wishlist is empty. Add some items!</p>

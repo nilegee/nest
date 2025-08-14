@@ -3,7 +3,7 @@
  * Listens to signal bus and generates appropriate nudges
  */
 
-import { supabase } from '/web/supabaseClient.js';
+import { supabase } from '../../web/supabaseClient.js';
 import { signalBus } from './signal-bus.js';
 import { RULES } from './nudge-rules.js';
 

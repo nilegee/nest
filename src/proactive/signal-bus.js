@@ -3,7 +3,7 @@
  * Manages in-memory event distribution and optional database logging
  */
 
-import { supabase } from '/web/supabaseClient.js';
+import { supabase } from '../../web/supabaseClient.js';
 
 class SignalBus {
   constructor() {
