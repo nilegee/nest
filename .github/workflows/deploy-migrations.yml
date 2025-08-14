@@ -1,4 +1,4 @@
-name: Deploy Supabase Schema
+name: Deploy Supabase Schema (IPv4)
 
 on:
   workflow_dispatch:
@@ -17,10 +17,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install psql client
+      - name: Install psql client + dnsutils
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client dnsutils
 
       - name: Sanitize DATABASE_URL
         id: sanitize
@@ -38,40 +38,55 @@ jobs:
             if [[ "$URL" == *"?"* ]]; then URL="${URL}&sslmode=require"; else URL="${URL}?sslmode=require"; fi
           fi
           echo "SANITIZED_URL=$URL" >> $GITHUB_ENV
-          # redacted print for logs
-          SAFE="${URL//postgresql:\\/\\/postgres:*@/postgresql:\/\/postgres:***@}"
+          # extract host for A-record lookup
+          HOST="$(python3 -c "import sys, urllib.parse as u; url = u.urlsplit(sys.argv[1]); print(url.hostname or '')" "$URL")"
+          echo "DB_HOST=$HOST" >> $GITHUB_ENV
+          SAFE="${URL//postgresql:\/\/postgres:*@/postgresql:\/\/postgres:***@}"
           echo "Using URL (redacted): $SAFE"
 
-      - name: Connectivity probe
+      - name: Resolve IPv4 and export PGHOSTADDR
+        shell: bash
         run: |
-          set -e
-          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
+          set -euo pipefail
+          if [[ -z "${DB_HOST:-}" ]]; then
+            echo "ERROR: Could not parse DB host from DATABASE_URL"; exit 65
+          fi
+          IPV4="$(dig +short A "$DB_HOST" | head -n1)"
+          if [[ -z "$IPV4" ]]; then
+            echo "ERROR: No IPv4 A record found for $DB_HOST"; exit 65
+          fi
+          echo "Resolved IPv4: $IPV4"
+          echo "PGHOSTADDR=$IPV4" >> $GITHUB_ENV
+
+      - name: Connectivity probe (forced IPv4)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -Atqc "select 'ok' as probe, current_user, current_database();"
 
       - name: Preflight – confirm schema file exists
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           test -f supabase/schema_inferred.sql || { echo "ERROR: supabase/schema_inferred.sql not found"; ls -R; exit 66; }
           echo "Found schema file: supabase/schema_inferred.sql (size $(wc -c < supabase/schema_inferred.sql) bytes)"
+          echo "DB host: $DB_HOST | IPv4: $PGHOSTADDR"
 
       - name: Ensure required extensions
+        shell: bash
         run: |
-          set -e
-          psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
+          set -euo pipefail
+          PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" -v ON_ERROR_STOP=1 -c 'create extension if not exists "pgcrypto";'
 
-      - name: Apply schema (verbose, echo errors)
+      - name: Apply schema (verbose, echo errors; IPv4)
+        shell: bash
         run: |
-          set -e
-          # Most helpful psql flags for debugging:
-          # --echo-errors prints the server error messages immediately
-          # --echo-queries prints statements before execution
-          # -v VERBOSITY=verbose shows detail, including constraint names, positions
-          # -v ON_ERROR_STOP=1 makes psql exit on first error (we want the first failing line)
-          psql "$SANITIZED_URL" \
+          set -euo pipefail
+          PGHOSTADDR="$PGHOSTADDR" psql "$SANITIZED_URL" \
             --echo-errors --echo-queries \
             -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
             -f supabase/schema_inferred.sql
-        shell: bash
 
       - name: Success marker
         if: success()
-        run: echo "✅ Schema applied successfully."
+        run: echo "✅ Schema applied successfully over IPv4."
