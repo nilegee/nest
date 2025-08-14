@@ -27,6 +27,39 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install psql client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Probe DB connectivity
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Probing Postgres…"
+          echo "Branch condition: github.ref == 'refs/heads/main' (current: ${{ github.ref }})"
+          echo "Using DATABASE_URL secret from repository settings"
+          
+          # Test basic connectivity first
+          if ! pg_isready -d "$DATABASE_URL"; then
+            echo "❌ Database not ready. Common fixes:"
+            echo "• SSL required → append ?sslmode=require to DATABASE_URL secret"
+            echo "• Host unreachable → verify host format: db.<project>.supabase.co"
+            echo "• Network restrictions → check Supabase IP allowlist settings"
+            exit 1
+          fi
+          
+          # Test actual connection and query
+          if ! psql "$DATABASE_URL" -c "select version(), now(), current_user, inet_server_addr();"; then
+            echo "❌ Connection failed. Common fixes:"
+            echo "• Password authentication failed → reset DB password in Supabase → update secret"
+            echo "• SSL is required → append ?sslmode=require to DATABASE_URL secret"  
+            echo "• No pg_hba.conf entry → check Supabase IP allowlist / network restrictions"
+            exit 1
+          fi
+          
+          echo "✅ DB reachable"
+
       - name: Verify Supabase CLI (no global install)
         run: npx supabase --version
 
