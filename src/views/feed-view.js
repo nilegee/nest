@@ -7,6 +7,8 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
+import { insertReturning, deleteById } from '../lib/db-helpers.js';
+import { supabase } from '../../web/supabaseClient.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { getTemplateFromHash } from '../router/router.js';
 
@@ -330,23 +332,21 @@ export class FeedView extends LitElement {
     this.loading = true;
     
     try {
-      const { data, error } = await db.insert('posts', {
+      const row = await insertReturning('posts', {
         family_id: familyId,
         author_id: user.id,
         body: this.feedText.trim(),
         visibility: 'family'
-      });
+      }, supabase);
 
-      if (error) {
-        throw error;
-      }
-
+      // Update local state
+      this.posts = [row, ...this.posts];
       this.feedText = '';
       this.template = null;
       ui.toastSuccess('Post shared with family!');
       
-      // Reload posts to show the new one
-      this.loadPosts();
+      // Emit event for other components to react
+      window.dispatchEvent(new CustomEvent('post-created', { detail: row }));
       
     } catch (error) {
       console.error('Failed to create post:', error);

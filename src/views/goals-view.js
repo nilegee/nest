@@ -7,6 +7,8 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
+import { insertReturning, deleteById } from '../lib/db-helpers.js';
+import { supabase } from '../../web/supabaseClient.js';
 import { waitForSession } from '../lib/session-store.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { ACT_KINDS } from '../constants.js';
@@ -440,15 +442,12 @@ export class GoalsView extends LitElement {
       payload.kind = KIND_MAP[payload.kind];
     }
     
-    const { data, error } = await db.insert('acts', payload);
+    const row = await insertReturning('acts', payload, supabase);
 
-    if (error) {
-      throw error;
-    }
-
-    // Reload data to update UI
-    this.loadActs();
-    this.loadCurrentGoal();
+    // Update local state - add to acts list
+    this.acts = [row, ...this.acts];
+    this.loadCurrentGoal(); // Refresh goal progress
+    this.requestUpdate();
     
     return true;
   }

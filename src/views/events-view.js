@@ -390,19 +390,19 @@ export class EventsView extends LitElement {
       throw new Error('No family context or user');
     }
     
-    const { data, error } = await db.insert('events', {
+    const row = await insertReturning('events', {
       family_id: familyId,
       owner_id: user.id,
       title: title.trim(),
       location,
       starts_at: startsAt
-    });
+    }, supabase);
 
-    if (error) {
-      throw error;
-    }
+    // Update local state
+    this.events = [row, ...this.events];
+    this.requestUpdate();
 
-    return data;
+    return row;
   }
 
   /**

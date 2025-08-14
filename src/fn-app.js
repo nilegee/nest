@@ -183,6 +183,9 @@ export class FnApp extends LitElement {
       console.log('User authorized, loading home view');
       await waitForSession();
       
+      // Refresh data after sign-in
+      window.dispatchEvent(new CustomEvent('refresh-data'));
+      
       // Clean OAuth hash after parsing
       if (location.hash && location.hash.startsWith('#access_token=')) {
         history.replaceState({}, document.title, location.pathname + location.search);
