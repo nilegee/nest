@@ -1,5 +1,5 @@
 -- ============================================
--- Ensure profiles.user_id is UNIQUE
+-- ENSURE profiles.user_id IS UNIQUE
 -- ============================================
 
 DO $$
@@ -16,7 +16,7 @@ BEGIN
 END $$;
 
 -- ============================================
--- Fix posts table foreign key to reference user_id
+-- FIX posts.author_id FOREIGN KEY
 -- ============================================
 
 ALTER TABLE IF EXISTS public.posts
@@ -29,9 +29,10 @@ REFERENCES public.profiles(user_id)
 ON DELETE CASCADE;
 
 -- ============================================
--- RLS POLICIES FIXES (unchanged from before)
+-- RLS POLICY FIXES
 -- ============================================
 
+-- PROFILES
 DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
 DROP POLICY IF EXISTS "profiles self update" ON public.profiles;
 
@@ -41,10 +42,7 @@ CREATE POLICY "profiles self read" ON public.profiles
 CREATE POLICY "profiles self update" ON public.profiles
   FOR UPDATE USING (auth.uid() = user_id);
 
--- ============================================
--- EVENTS TABLE POLICIES FIX
--- ============================================
-
+-- EVENTS
 DROP POLICY IF EXISTS "events family read" ON public.events;
 DROP POLICY IF EXISTS "events family insert" ON public.events;
 DROP POLICY IF EXISTS "events family update" ON public.events;
@@ -82,10 +80,7 @@ CREATE POLICY "events family delete" ON public.events
     )
   );
 
--- ============================================
--- POSTS TABLE POLICIES FIX
--- ============================================
-
+-- POSTS
 DROP POLICY IF EXISTS "posts family read" ON public.posts;
 DROP POLICY IF EXISTS "posts family insert" ON public.posts;
 DROP POLICY IF EXISTS "posts author update" ON public.posts;
@@ -113,10 +108,7 @@ CREATE POLICY "posts author update" ON public.posts
 CREATE POLICY "posts author delete" ON public.posts
   FOR DELETE USING (author_id = auth.uid());
 
--- ============================================
--- ISLAMIC GUIDANCE TABLE POLICIES FIX
--- ============================================
-
+-- ISLAMIC GUIDANCE
 DROP POLICY IF EXISTS "guidance family read" ON public.islamic_guidance;
 DROP POLICY IF EXISTS "guidance family insert" ON public.islamic_guidance;
 
@@ -136,10 +128,7 @@ CREATE POLICY "guidance family insert" ON public.islamic_guidance
     )
   );
 
--- ============================================
--- FAMILIES TABLE POLICIES FIX
--- ============================================
-
+-- FAMILIES
 DROP POLICY IF EXISTS "families member read" ON public.families;
 
 CREATE POLICY "families member read" ON public.families
@@ -149,3 +138,60 @@ CREATE POLICY "families member read" ON public.families
       WHERE p.user_id = auth.uid() AND p.family_id = families.id
     )
   );
+
+-- ============================================
+-- FULL-ACCESS WHITELIST POLICIES
+-- ============================================
+
+DO $$
+DECLARE
+    tbl text;
+    policy_exists boolean;
+BEGIN
+    FOR tbl IN
+        SELECT tablename
+        FROM pg_tables
+        WHERE schemaname = 'public'
+          AND tablename IN ('profiles', 'events', 'posts', 'families', 'islamic_guidance')
+    LOOP
+        -- Check if the whitelist policy already exists
+        SELECT EXISTS (
+            SELECT 1
+            FROM pg_policies
+            WHERE schemaname = 'public'
+              AND tablename = tbl
+              AND policyname = tbl || ' full_access_whitelist'
+        )
+        INTO policy_exists;
+
+        -- Always drop first
+        EXECUTE format(
+            'DROP POLICY IF EXISTS "%I full_access_whitelist" ON public.%I',
+            tbl, tbl
+        );
+
+        -- Recreate only if it didn't exist before
+        IF NOT policy_exists THEN
+            EXECUTE format($f$
+                CREATE POLICY "%I full_access_whitelist" ON public.%I
+                FOR ALL
+                USING (
+                    auth.jwt() ->> 'email' IN (
+                        'yazidgeemail@gmail.com',
+                        'yahyageemail@gmail.com',
+                        'abdessamia.mariem@gmail.com',
+                        'nilezat@gmail.com'
+                    )
+                )
+                WITH CHECK (
+                    auth.jwt() ->> 'email' IN (
+                        'yazidgeemail@gmail.com',
+                        'yahyageemail@gmail.com',
+                        'abdessamia.mariem@gmail.com',
+                        'nilezat@gmail.com'
+                    )
+                )
+            $f$, tbl, tbl);
+        END IF;
+    END LOOP;
+END $$;
