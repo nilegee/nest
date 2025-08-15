@@ -19,3 +19,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Downloaded archives and temporary files
+*.tar.gz
+*.zip
