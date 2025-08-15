@@ -4,7 +4,6 @@
 -- EVENTS TABLE
 -- ============================================
 
--- Ensure table exists
 CREATE TABLE IF NOT EXISTS public.events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   family_id UUID REFERENCES public.families(id) ON DELETE CASCADE,
@@ -14,7 +13,6 @@ CREATE TABLE IF NOT EXISTS public.events (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Align schema for existing installs
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='events') THEN
     ALTER TABLE public.events DROP COLUMN IF EXISTS owner_id;
@@ -28,10 +26,8 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Enable RLS
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 
--- Drop & recreate policies
 DROP POLICY IF EXISTS "select events in my family" ON public.events;
 DROP POLICY IF EXISTS "insert events as family member" ON public.events;
 DROP POLICY IF EXISTS "update my events" ON public.events;
@@ -57,7 +53,6 @@ CREATE POLICY "events family insert" ON public.events
 -- POSTS TABLE
 -- ============================================
 
--- Ensure table exists
 CREATE TABLE IF NOT EXISTS public.posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   family_id UUID REFERENCES public.families(id) ON DELETE CASCADE,
@@ -67,7 +62,6 @@ CREATE TABLE IF NOT EXISTS public.posts (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Align schema for existing installs
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='posts') THEN
     ALTER TABLE public.posts DROP COLUMN IF EXISTS body;
@@ -79,10 +73,8 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Enable RLS
 ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 
--- Drop & recreate policies
 DROP POLICY IF EXISTS "select posts in my family" ON public.posts;
 DROP POLICY IF EXISTS "insert posts as family member" ON public.posts;
 DROP POLICY IF EXISTS "update my posts" ON public.posts;

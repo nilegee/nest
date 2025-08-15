@@ -89,6 +89,20 @@ The same fragment is used both in desktop sidebar and mobile inline.
 
 ❌ **Don't** reference service keys or secrets in client code.
 
+## MigrationAgent – Database Schema Standards
+
+MigrationAgent ensures all future Supabase migrations follow these rules:  
+- **One file per feature/phase**  
+- **Descriptive filename** in the format `YYYYMMDDHHMMSS_<phase-or-feature>.sql`  
+- **Self-contained**: create tables if not exist before altering  
+- **RLS first-class**: every family-scoped table has RLS enabled and policies applied immediately  
+- **Readable**: structured sections for create, alter, RLS, indexes  
+- **No temp/probe migrations**  
+- **Never manual changes** in Supabase UI, always via migrations  
+- **Review checklist** enforced before commit
+
+MigrationAgent works with other agents to ensure schema integrity, security, and minimal clutter in `/supabase/migrations/`.
+
 ## Security notes
 - Anon key is public; RLS is the real gate. Keep policies tight.
 - Admins can manage family settings; never bypass RLS with client logic.
