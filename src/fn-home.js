@@ -393,7 +393,7 @@ export class FnHome extends LitElement {
       this.session = session;
       if (session?.user) {
         this.initializeData();
-        FamilyBot.initScheduler(this);
+        // FamilyBot initialization is now handled in fn-app.js to prevent duplicates
       }
     });
     

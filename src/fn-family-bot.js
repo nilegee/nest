@@ -375,8 +375,6 @@ class FamilyBotAPI {
     this.schedulerInterval = setInterval(() => {
       this.maybeSendQueued();
     }, 60 * 60 * 1000); // Every hour
-
-    console.log('FamilyBot scheduler initialized');
   }
 
   /**
@@ -454,6 +452,28 @@ const FamilyBot = new FamilyBotAPI();
 
 // Export for use in other modules
 export { FamilyBot };
+
+// Track initialization state
+let started = false;
+
+/**
+ * Initialize FamilyBot scheduler only once per session
+ * Safe to call multiple times - will be a no-op if already started
+ */
+export function initFamilyBotOnce() {
+  if (started) return;
+  started = true;
+  
+  import('./utils/logger.js').then(({ logger }) => {
+    const log = logger('family-bot');
+    log.info('scheduler initialized');
+    FamilyBot.initScheduler();
+  }).catch(() => {
+    // Fallback if logger fails to load
+    console.log('[family-bot] scheduler initialized');
+    FamilyBot.initScheduler();
+  });
+}
 
 // Also make available globally for legacy compatibility
 window.FamilyBot = FamilyBot;

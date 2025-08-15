@@ -397,6 +397,9 @@
   - [ ] No CORS errors
   - [ ] Only expected informational logs
 
+- [ ] **Production Console Cleanliness**
+  - [ ] In production build: zero info/warn logs; only real errors
+
 - [ ] **Network Tab**
   - [ ] All CDN resources load successfully (Lit, Supabase JS, Iconify)
   - [ ] No failed requests
