@@ -29,6 +29,7 @@ ON DELETE CASCADE;
 -- ============================================
 -- RLS POLICY FIXES
 -- ============================================
+
 -- PROFILES
 DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
 DROP POLICY IF EXISTS "profiles self update" ON public.profiles;
@@ -153,7 +154,7 @@ BEGIN
         -- Enable RLS
         EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl);
 
-        -- Check if whitelist policy already exists
+        -- Check if whitelist policy exists already
         SELECT EXISTS (
             SELECT 1
             FROM pg_policies
@@ -170,26 +171,13 @@ BEGIN
 
         -- Create whitelist policy only if it didn't exist before
         IF NOT policy_exists THEN
-            EXECUTE format($f$
-                CREATE POLICY "%I full_access_whitelist" ON public.%I
-                FOR ALL
-                USING (
-                    auth.jwt() ->> 'email' IN (
-                        'yazidgeemail@gmail.com',
-                        'yahyageemail@gmail.com',
-                        'abdessamia.mariem@gmail.com',
-                        'nilezat@gmail.com'
-                    )
-                )
-                WITH CHECK (
-                    auth.jwt() ->> 'email' IN (
-                        'yazidgeemail@gmail.com',
-                        'yahyageemail@gmail.com',
-                        'abdessamia.mariem@gmail.com',
-                        'nilezat@gmail.com'
-                    )
-                )
-            $f$, tbl, tbl);
+            EXECUTE format(
+                'CREATE POLICY "%I full_access_whitelist" ON public.%I ' ||
+                'FOR ALL ' ||
+                'USING (auth.jwt() ->> ''email'' IN (''yazidgeemail@gmail.com'',''yahyageemail@gmail.com'',''abdessamia.mariem@gmail.com'',''nilezat@gmail.com'')) ' ||
+                'WITH CHECK (auth.jwt() ->> ''email'' IN (''yazidgeemail@gmail.com'',''yahyageemail@gmail.com'',''abdessamia.mariem@gmail.com'',''nilezat@gmail.com''))',
+                tbl, tbl
+            );
         END IF;
     END LOOP;
 END $$;
