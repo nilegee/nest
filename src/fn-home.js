@@ -1,15 +1,23 @@
 /**
  * Home/Nest component
  * Minimal authenticated view with simple dashboard
+ * Now includes navigation and routing to new Phase 1 views
  */
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 
+// Import Phase 1 components
+import './views/events-view.js';
+import './views/feed-view.js';
+import './components/profile-overlay.js';
+import './cards/islamic-guidance-card.js';
+
 export class FnHome extends LitElement {
   static properties = {
     session: { type: Object },
-    userProfile: { type: Object }
+    userProfile: { type: Object },
+    currentView: { type: String }
   };
 
   static styles = css`
@@ -23,6 +31,74 @@ export class FnHome extends LitElement {
       --border: #e2e8f0;
       --radius: 8px;
       --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+    
+    .sidebar {
+      width: 240px;
+      background: white;
+      border-right: 1px solid var(--border);
+      padding: 20px;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    
+    .main-content {
+      flex: 1;
+      margin-left: 240px;
+      padding: 20px;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 4px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      transition: background-color 0.2s ease;
+    }
+    
+    .nav-item:hover {
+      background: #f8fafc;
+    }
+    
+    .nav-item.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .nav-item iconify-icon {
+      font-size: 18px;
+    }
+    
+    .sidebar-header {
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .app-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    
+    .app-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     
     .container {
@@ -48,16 +124,32 @@ export class FnHome extends LitElement {
       font-size: 1.1rem;
     }
     
-    .card {
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    
+    .guidance-section {
+      grid-column: span 2;
+      margin-bottom: 32px;
+    }
+    
+    .quick-link-card {
       background: white;
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 24px;
-      margin-bottom: 20px;
       border: 1px solid var(--border);
       text-align: center;
-      max-width: 400px;
-      margin: 0 auto;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .quick-link-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.15);
     }
     
     .card-icon {
@@ -93,21 +185,82 @@ export class FnHome extends LitElement {
       align-items: center;
       gap: 8px;
       box-shadow: var(--shadow);
+      z-index: 1000;
     }
     
     .sign-out-button:hover {
       background: #f8fafc;
     }
+    
+    @media (max-width: 768px) {
+      .sidebar {
+        display: none;
+      }
+      
+      .main-content {
+        margin-left: 0;
+      }
+      
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .guidance-section {
+        grid-column: span 1;
+      }
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      .nav-item,
+      .quick-link-card {
+        transition: none;
+      }
+    }
   `;
   constructor() {
     super();
     this.userProfile = null;
+    this.currentView = 'dashboard'; // Default view
+    
+    // Listen for hash changes for navigation
+    window.addEventListener('hashchange', () => {
+      this.updateCurrentView();
+    });
+    
+    // Listen for profile overlay events
+    this.addEventListener('show-profile', this.handleShowProfile.bind(this));
   }
 
   async connectedCallback() {
     super.connectedCallback();
     if (this.session?.user) {
       await this.loadUserProfile();
+    }
+    this.updateCurrentView();
+  }
+
+  /**
+   * Update current view based on URL hash
+   */
+  updateCurrentView() {
+    const hash = window.location.hash.slice(1); // Remove #
+    this.currentView = hash || 'dashboard';
+  }
+
+  /**
+   * Navigate to a specific view
+   */
+  navigateTo(view) {
+    window.location.hash = view;
+  }
+
+  /**
+   * Handle profile overlay display
+   */
+  handleShowProfile(event) {
+    const overlay = this.shadowRoot.querySelector('profile-overlay');
+    if (overlay) {
+      overlay.show(event.detail.userId);
     }
   }
 
@@ -160,21 +313,83 @@ export class FnHome extends LitElement {
         Sign Out
       </button>
       
-      <div class="container">
-        <div class="header">
-          <h1 class="greeting">Welcome ${userName}!</h1>
-          <p class="subtitle">Your family dashboard is ready</p>
-        </div>
+      <div class="app-layout">
+        <nav class="sidebar">
+          <div class="sidebar-header">
+            <div class="app-title">🏠 Family Nest</div>
+            <div class="app-subtitle">Phase 1</div>
+          </div>
+          
+          <a class="nav-item ${this.currentView === 'dashboard' ? 'active' : ''}" 
+             @click=${() => this.navigateTo('dashboard')}>
+            <iconify-icon icon="material-symbols:dashboard"></iconify-icon>
+            Dashboard
+          </a>
+          
+          <a class="nav-item ${this.currentView === 'events' ? 'active' : ''}" 
+             @click=${() => this.navigateTo('events')}>
+            <iconify-icon icon="material-symbols:event"></iconify-icon>
+            Events
+          </a>
+          
+          <a class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" 
+             @click=${() => this.navigateTo('feed')}>
+            <iconify-icon icon="material-symbols:forum"></iconify-icon>
+            Family Wall
+          </a>
+        </nav>
         
-        <div class="card">
-          <iconify-icon icon="material-symbols:event-add" class="card-icon"></iconify-icon>
-          <h2 class="card-title">Add your first family event</h2>
-          <p class="card-description">
-            Start building your family timeline by adding important events, celebrations, and milestones.
-          </p>
-        </div>
+        <main class="main-content">
+          ${this.renderCurrentView(userName)}
+        </main>
       </div>
+      
+      <!-- Profile Overlay -->
+      <profile-overlay></profile-overlay>
     `;
+  }
+
+  renderCurrentView(userName) {
+    switch (this.currentView) {
+      case 'events':
+        return html`<events-view></events-view>`;
+      
+      case 'feed':
+        return html`<feed-view></feed-view>`;
+        
+      case 'dashboard':
+      default:
+        return html`
+          <div class="container">
+            <div class="header">
+              <h1 class="greeting">Welcome ${userName}!</h1>
+              <p class="subtitle">Your family dashboard is ready</p>
+            </div>
+            
+            <div class="guidance-section">
+              <islamic-guidance-card></islamic-guidance-card>
+            </div>
+            
+            <div class="dashboard-grid">
+              <div class="quick-link-card" @click=${() => this.navigateTo('events')}>
+                <iconify-icon icon="material-symbols:event-add" class="card-icon"></iconify-icon>
+                <h2 class="card-title">Family Events</h2>
+                <p class="card-description">
+                  Manage important family events, celebrations, and milestones.
+                </p>
+              </div>
+              
+              <div class="quick-link-card" @click=${() => this.navigateTo('feed')}>
+                <iconify-icon icon="material-symbols:forum" class="card-icon"></iconify-icon>
+                <h2 class="card-title">Family Wall</h2>
+                <p class="card-description">
+                  Share moments and stay connected with your family.
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+    }
   }
 }
 
