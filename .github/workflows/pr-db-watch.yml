@@ -1,0 +1,59 @@
+---
+name: PR DB Change Watch
+"on":
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: diff
+        name: Find changed migration files
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.sha }}"
+          CHANGED="$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | \
+            awk '$2 ~ /^supabase\/migrations\//')"
+          echo "changed_list<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          COUNT="$(echo "$CHANGED" | wc -l | tr -d ' ')"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR (if DB changes)
+        if: steps.diff.outputs.count != '0'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            **Database changes detected** in `supabase/migrations/**`:
+
+            ```
+            ${{ steps.diff.outputs.changed_list }}
+            ```
+
+            ➜ Please review and then **run** the deploy workflow:
+            https://github.com/${{ github.repository }}/actions/workflows/deploy-migrations.yml
+
+            When reviewed, add the label **`db-migrations-ok`** to this PR to clear the check.
+
+      - name: Fail if changes not acknowledged
+        if: steps.diff.outputs.count != '0'
+        run: |
+          labels='${{ toJson(github.event.pull_request.labels) }}'
+          if echo "$labels" | grep -qi '"name":"db-migrations-ok"'; then
+            echo "Label present; allowing PR."
+          else
+            echo "::error::DB migrations changed. Add the label 'db-migrations-ok' after review."
+            exit 1
+          fi
+
+      - name: Pass if no DB changes
+        if: steps.diff.outputs.count == '0'
+        run: echo "No DB changes in this PR."
