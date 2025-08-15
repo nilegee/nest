@@ -278,14 +278,74 @@ export class FnHome extends LitElement {
         .single();
       
       if (error) {
-        console.log('Profile not found, user may need to complete setup');
-        this.userProfile = null;
+        console.log('Profile not found, creating new profile...');
+        // Auto-create profile for new users
+        await this.createUserProfile();
       } else {
         this.userProfile = data;
       }
     } catch (error) {
       console.log('Error loading profile:', error);
       this.userProfile = null;
+    }
+  }
+
+  /**
+   * Create a new user profile with default family
+   */
+  async createUserProfile() {
+    if (!this.session?.user?.id || !this.session?.user?.email) return;
+    
+    try {
+      // First, ensure the default family exists
+      let familyId;
+      const { data: familyData, error: familyError } = await supabase
+        .from('families')
+        .select('id')
+        .eq('name', 'G Family')
+        .single();
+      
+      if (familyError || !familyData) {
+        // Create default family if it doesn't exist
+        const { data: newFamily, error: createFamilyError } = await supabase
+          .from('families')
+          .insert([{ name: 'G Family' }])
+          .select('id')
+          .single();
+        
+        if (createFamilyError) {
+          console.error('Error creating family:', createFamilyError);
+          return;
+        }
+        familyId = newFamily.id;
+      } else {
+        familyId = familyData.id;
+      }
+
+      // Create user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .insert([{
+          user_id: this.session.user.id,
+          family_id: familyId,
+          full_name: this.session.user.user_metadata?.full_name || 
+                     this.session.user.email?.split('@')[0] || 
+                     'Family Member',
+          role: 'member'
+        }])
+        .select('*')
+        .single();
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+        return;
+      }
+
+      console.log('Profile created successfully');
+      this.userProfile = profileData;
+      
+    } catch (error) {
+      console.error('Error in profile creation:', error);
     }
   }
 
