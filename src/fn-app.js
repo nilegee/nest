@@ -4,8 +4,8 @@
  */
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
-import { supabase } from '../web/supabaseClient.js';
-import { wireAuthListener, waitForSession, getSession } from './lib/session-store.js';
+import { getFreshSession } from '../web/supabaseClient.js';
+import { init as initSessionStore, wireAuthListener, waitForSession, getSession } from './lib/session-store.js';
 import { WHITELISTED_EMAILS } from '../web/env.js';
 import { bootWarn } from './lib/log.js';
 import { logger } from './utils/logger.js';
@@ -114,8 +114,6 @@ export class FnApp extends LitElement {
         search: window.location.search
       });
       
-      wireAuthListener();
-      
       // Ensure a visible skeleton immediately
       document.documentElement.classList.add('app-ready');
       
@@ -133,27 +131,27 @@ export class FnApp extends LitElement {
         return;
       }
       
-      // Get initial session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Initialize session store with clock-skew protection
+      await initSessionStore();
       
-      if (sessionError) {
-        log.error('Session error:', sessionError);
-        throw sessionError;
-      }
+      // Get initial session using the safe method
+      const session = await getFreshSession();
       
       log.info('Initial session:', session?.user?.email || 'No session');
       
-      // Set up auth state change listener (only once)
-      if (!authListenerAttached) {
-        supabase.auth.onAuthStateChange(async (event, session) => {
-          log.info('Auth state changed:', event, session?.user?.email);
-          await this.handleSessionChange(session);
-        });
-        authListenerAttached = true;
-      }
-      
       // Handle initial session
       await this.handleSessionChange(session);
+      
+      // Set up auth state change listener for ongoing changes
+      import('../web/supabaseClient.js').then(({ supabase }) => {
+        if (!authListenerAttached) {
+          supabase.auth.onAuthStateChange(async (event, session) => {
+            log.info('Auth state changed:', event, session?.user?.email);
+            await this.handleSessionChange(session);
+          });
+          authListenerAttached = true;
+        }
+      });
       
     } catch (error) {
       log.error('Auth initialization error:', error);
@@ -204,6 +202,11 @@ export class FnApp extends LitElement {
       // Refresh data after sign-in
       window.dispatchEvent(new CustomEvent('refresh-data'));
       
+      // Route to #nest when authenticated and hash is empty
+      if (!window.location.hash || window.location.hash === '#') {
+        window.location.hash = '#nest';
+      }
+      
       // Clean OAuth hash after parsing
       if (location.hash && location.hash.startsWith('#access_token=')) {
         history.replaceState({}, document.title, location.pathname + location.search);
@@ -223,6 +226,7 @@ export class FnApp extends LitElement {
   async handleSignOut() {
     try {
       this.loading = true;
+      const { supabase } = await import('../web/supabaseClient.js');
       await supabase.auth.signOut();
       
       // Clear any remaining session data

@@ -1,12 +1,13 @@
-import { supabase } from '../../web/supabaseClient.js';
+import { supabase, getFreshSession } from '../../web/supabaseClient.js';
 
 let _session = null;
 let _resolvers = [];
+let _initialized = false;
 
 export async function getSession() {
   if (_session) return _session;
-  const { data } = await supabase.auth.getSession();
-  _session = data?.session ?? null;
+  const session = await getFreshSession();
+  _session = session;
   return _session;
 }
 
@@ -26,4 +27,17 @@ export function wireAuthListener() {
     }
     window.dispatchEvent(new CustomEvent('session-changed', { detail: _session }));
   });
+}
+
+// Ensure one-time init that resolves before first render
+export async function init() {
+  if (_initialized) return;
+  _initialized = true;
+  
+  wireAuthListener();
+  const session = await getFreshSession();
+  _session = session;
+  
+  // Emit session change to notify components
+  window.dispatchEvent(new CustomEvent('session-changed', { detail: _session }));
 }

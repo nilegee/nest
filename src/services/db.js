@@ -162,22 +162,35 @@ export async function rpc(functionName, params = {}) {
  */
 export async function getCurrentUserProfile(supabaseClient = supabase, userId) {
   // 1) Try the me view
-  let { data, error, status } = await supabaseClient.from('me').select('*').maybeSingle();
-  if (error && status !== 406) console.warn('me view error', { status, error });
-  if (error && status === 406) bootWarn('me view returns 406 (likely RLS)', { status, error });
-  if (data) return { data, error: null };
+  try {
+    let { data, error, status } = await supabaseClient.from('me').select('*').maybeSingle();
+    if (error && status !== 406) console.warn('me view error', { status, error });
+    if (error && status === 406) bootWarn('me view returns 406 (likely RLS)', { status, error });
+    if (data) return { data, error: null };
+  } catch (err) {
+    console.warn('me view fetch failed:', err);
+  }
 
   // 2) Fallback to profiles (RLS must allow owner)
-  const { data: prof, error: pErr, status: pStatus } = await supabaseClient
-    .from('profiles')
-    .select('user_id, full_name, dob, family_id, avatar_url')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (pErr && pStatus !== 406) console.warn('profiles fallback error', { pStatus, pErr });
-  if (pErr && pStatus === 406) bootWarn('profiles call returns 406 (likely RLS)', { pStatus, pErr });
-
-  if (!prof) {
-    throw new Error('Profile not available. Run latest DB migrations to add `me` view and RLS.');
+  try {
+    const { data: prof, error: pErr, status: pStatus } = await supabaseClient
+      .from('profiles')
+      .select('user_id, full_name, dob, family_id, avatar_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (pErr && pStatus !== 406) console.warn('profiles fallback error', { pStatus, pErr });
+    if (pErr && pStatus === 406) bootWarn('profiles call returns 406 (likely RLS)', { pStatus, pErr });
+    
+    if (prof) {
+      return { data: prof, error: null };
+    }
+  } catch (err) {
+    console.warn('profiles fallback failed:', err);
   }
-  return { data: prof, error: null };
+
+  // 3) Return graceful fallback instead of throwing
+  return { 
+    data: null, 
+    error: new Error('Profile not available. Please ensure database migrations are applied.')
+  };
 }

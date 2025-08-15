@@ -551,7 +551,8 @@ export class FnHome extends LitElement {
       // Schedule birthday reminders for the user
       await scheduleBirthdaysFor(this.session.user.id);
     } catch (error) {
-      showError('Failed to load family data');
+      console.warn('Failed to load family data:', error);
+      // Don't show error toast for initialization - profile fallback will handle it
     }
   }
 
@@ -563,7 +564,15 @@ export class FnHome extends LitElement {
       const { data, error } = await db.getCurrentUserProfile(supabase, this.session?.user?.id);
       
       if (error) {
-        showError('Error loading profile');
+        console.warn('Profile loading error:', error);
+        // Set a basic profile fallback to prevent UI blocking
+        this.userProfile = {
+          user_id: this.session?.user?.id,
+          full_name: this.session?.user?.email?.split('@')[0] || 'User',
+          family_id: null,
+          dob: null,
+          avatar_url: null
+        };
         return;
       }
       
@@ -573,10 +582,20 @@ export class FnHome extends LitElement {
       sessionStore.setUserProfile(data);
       if (data?.family_id) {
         sessionStore.setFamilyId(data.family_id);
+      } else {
+        // Show setup needed indicator if no family
+        console.info('User has no family assigned - showing setup helper');
       }
     } catch (error) {
-      console.log('Profile loading failed - likely due to missing migrations or RLS setup');
-      showError('Failed to load profile');
+      console.warn('Profile loading failed:', error);
+      // Set a basic profile fallback
+      this.userProfile = {
+        user_id: this.session?.user?.id,
+        full_name: this.session?.user?.email?.split('@')[0] || 'User',
+        family_id: null,
+        dob: null,
+        avatar_url: null
+      };
     }
   }
 
