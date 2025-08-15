@@ -7,24 +7,16 @@
 -- FOREIGN KEY CONSTRAINTS FIX
 -- ============================================
 
--- Fix posts table foreign key to reference correct column
-DO $$ 
-BEGIN
-  -- Drop existing foreign key constraint if it exists
-  IF EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'posts_author_id_fkey' 
-    AND table_name = 'posts'
-    AND table_schema = 'public'
-  ) THEN
-    ALTER TABLE public.posts DROP CONSTRAINT posts_author_id_fkey;
-  END IF;
-  
-  -- Add correct foreign key constraint  
-  ALTER TABLE public.posts 
-  ADD CONSTRAINT posts_author_id_fkey 
-  FOREIGN KEY (author_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
-END $$;
+-- Drop FK if exists
+ALTER TABLE IF EXISTS public.posts
+DROP CONSTRAINT IF EXISTS posts_author_id_fkey;
+
+-- Add correct FK (will fail if already exists, so make sure above DROP runs)
+ALTER TABLE IF EXISTS public.posts
+ADD CONSTRAINT posts_author_id_fkey
+FOREIGN KEY (author_id)
+REFERENCES public.profiles(user_id)
+ON DELETE CASCADE;
 
 -- ============================================
 -- PROFILES TABLE POLICIES FIX
@@ -33,7 +25,6 @@ END $$;
 DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
 DROP POLICY IF EXISTS "profiles self update" ON public.profiles;
 
--- Correct policies using user_id (which is the actual primary key)
 CREATE POLICY "profiles self read" ON public.profiles
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -46,6 +37,8 @@ CREATE POLICY "profiles self update" ON public.profiles
 
 DROP POLICY IF EXISTS "events family read" ON public.events;
 DROP POLICY IF EXISTS "events family insert" ON public.events;
+DROP POLICY IF EXISTS "events family update" ON public.events;
+DROP POLICY IF EXISTS "events family delete" ON public.events;
 
 CREATE POLICY "events family read" ON public.events
   FOR SELECT USING (
@@ -63,7 +56,6 @@ CREATE POLICY "events family insert" ON public.events
     )
   );
 
--- Add UPDATE and DELETE policies for events (without owner_id since it was dropped)
 CREATE POLICY "events family update" ON public.events
   FOR UPDATE USING (
     EXISTS (
@@ -86,6 +78,8 @@ CREATE POLICY "events family delete" ON public.events
 
 DROP POLICY IF EXISTS "posts family read" ON public.posts;
 DROP POLICY IF EXISTS "posts family insert" ON public.posts;
+DROP POLICY IF EXISTS "posts author update" ON public.posts;
+DROP POLICY IF EXISTS "posts author delete" ON public.posts;
 
 CREATE POLICY "posts family read" ON public.posts
   FOR SELECT USING (
