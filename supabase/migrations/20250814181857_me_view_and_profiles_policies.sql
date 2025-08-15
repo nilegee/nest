@@ -1,11 +1,11 @@
 -- 20250814181857_me_view_and_profiles_policies.sql
--- Bootstrap profiles + me view + safe RLS, idempotent after DROP SCHEMA public
+-- Bootstrap profiles + me view + safe RLS (idempotent)
 
--- Safety net in case ordering ever changes
+-- Safety nets
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 0) Safety: required enum/type (or fall back to text if enum absent)
+-- 0) Ensure enum
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -17,7 +17,7 @@ BEGIN
   END IF;
 END $$;
 
--- 1) Helper function to maintain updated_at
+-- 1) updated_at helper
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -35,7 +35,7 @@ BEGIN
   END IF;
 END $$;
 
--- 2) Ensure families table exists
+-- 2) families table
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -44,25 +44,21 @@ BEGIN
   ) THEN
     CREATE TABLE public.families (
       id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      name text UNIQUE NOT NULL
+      name text NOT NULL
     );
   END IF;
 END $$;
 
--- 2a) Ensure UNIQUE on families.name (valid Postgres pattern)
+-- 2a) Uniqueness on name (constraint style so ORMs see it)
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'families_name_key'
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='families_name_key') THEN
     ALTER TABLE public.families
       ADD CONSTRAINT families_name_key UNIQUE (name);
   END IF;
 END $$;
 
--- 3) Ensure profiles table exists with family_id
+-- 3) profiles table (create-or-evolve)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -80,7 +76,35 @@ BEGIN
       updated_at timestamptz NOT NULL DEFAULT now()
     );
   ELSE
-    -- Add family_id if missing
+    -- Add any missing columns safely (no type alterations to avoid enum/text clashes)
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='profiles' AND column_name='email'
+    ) THEN
+      ALTER TABLE public.profiles ADD COLUMN email citext;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='profiles' AND column_name='full_name'
+    ) THEN
+      ALTER TABLE public.profiles ADD COLUMN full_name text;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='profiles' AND column_name='avatar_url'
+    ) THEN
+      ALTER TABLE public.profiles ADD COLUMN avatar_url text;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='profiles' AND column_name='role'
+    ) THEN
+      ALTER TABLE public.profiles ADD COLUMN role public.member_role NOT NULL DEFAULT 'member';
+    END IF;
+
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_schema='public' AND table_name='profiles' AND column_name='family_id'
@@ -91,7 +115,7 @@ BEGIN
   END IF;
 END $$;
 
--- 3a) Backfill family_id for existing profiles (using 'G Family')
+-- 3a) Backfill family_id using a default family (safe if exists)
 WITH up AS (
   INSERT INTO public.families (name)
   VALUES ('G Family')
@@ -105,19 +129,17 @@ WHERE p.family_id IS NULL;
 -- 3b) Helpful index
 CREATE INDEX IF NOT EXISTS idx_profiles_family_id ON public.profiles (family_id);
 
--- 3c) Keep updated_at fresh
+-- 3c) updated_at trigger
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_trigger WHERE tgname = 'profiles_set_updated_at'
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='profiles_set_updated_at') THEN
     CREATE TRIGGER profiles_set_updated_at
     BEFORE UPDATE ON public.profiles
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
   END IF;
 END $$;
 
--- 4) Auto-create profile on signup (auth.users → public.profiles)
+-- 4) Auto-create profile from auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 SECURITY DEFINER
@@ -146,13 +168,14 @@ BEGIN
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 END $$;
 
--- 5) RLS on profiles: self can read/update
+-- 5) RLS on profiles (self-only)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_select_self'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_select_self'
   ) THEN
     CREATE POLICY profiles_select_self
       ON public.profiles FOR SELECT
@@ -160,7 +183,8 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_update_self'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='profiles' AND policyname='profiles_update_self'
   ) THEN
     CREATE POLICY profiles_update_self
       ON public.profiles FOR UPDATE
@@ -169,7 +193,7 @@ BEGIN
   END IF;
 END $$;
 
--- 6) me view
+-- 6) Views
 CREATE OR REPLACE VIEW public.me AS
 SELECT
   p.user_id,
@@ -185,7 +209,6 @@ FROM public.profiles p
 LEFT JOIN public.families f ON f.id = p.family_id
 WHERE p.user_id = auth.uid();
 
--- 7) Compact variant
 CREATE OR REPLACE VIEW public.me_min AS
 SELECT p.user_id, p.full_name, p.role
 FROM public.profiles p
