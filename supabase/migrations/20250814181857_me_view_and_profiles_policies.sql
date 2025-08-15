@@ -35,7 +35,7 @@ BEGIN
   END IF;
 END $$;
 
--- 2) Ensure families table exists (needed by profiles.family_id FK). No-op if already created by earlier migrations.
+-- 2) Ensure families table exists
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -49,19 +49,54 @@ BEGIN
   END IF;
 END $$;
 
--- 3) Create profiles table if missing
-CREATE TABLE IF NOT EXISTS public.profiles (
-  user_id    uuid PRIMARY KEY,
-  email      citext UNIQUE,
-  full_name  text,
-  avatar_url text,
-  family_id  uuid REFERENCES public.families(id) ON DELETE SET NULL,
-  role       public.member_role NOT NULL DEFAULT 'member',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+-- 2a) Ensure unique index on families.name
+ALTER TABLE public.families
+  ADD CONSTRAINT IF NOT EXISTS families_name_key UNIQUE (name);
 
--- 3a) Keep updated_at fresh
+-- 3) Ensure profiles table exists with family_id
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema='public' AND table_name='profiles'
+  ) THEN
+    CREATE TABLE public.profiles (
+      user_id    uuid PRIMARY KEY,
+      email      citext UNIQUE,
+      full_name  text,
+      avatar_url text,
+      family_id  uuid REFERENCES public.families(id) ON DELETE SET NULL,
+      role       public.member_role NOT NULL DEFAULT 'member',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+  ELSE
+    -- Add family_id if missing
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='profiles' AND column_name='family_id'
+    ) THEN
+      ALTER TABLE public.profiles
+        ADD COLUMN family_id uuid REFERENCES public.families(id) ON DELETE SET NULL;
+    END IF;
+  END IF;
+END $$;
+
+-- 3a) Backfill family_id for existing profiles (using 'G Family')
+WITH up AS (
+  INSERT INTO public.families (name)
+  VALUES ('G Family')
+  ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+  RETURNING id
+)
+UPDATE public.profiles p
+SET family_id = COALESCE(p.family_id, (SELECT id FROM up))
+WHERE p.family_id IS NULL;
+
+-- 3b) Helpful index
+CREATE INDEX IF NOT EXISTS idx_profiles_family_id ON public.profiles (family_id);
+
+-- 3c) Keep updated_at fresh
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -80,15 +115,20 @@ SECURITY DEFINER
 SET search_path = public
 LANGUAGE plpgsql AS $$
 BEGIN
-  INSERT INTO public.profiles (user_id, email, full_name, avatar_url)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'full_name',''), COALESCE(NEW.raw_user_meta_data->>'avatar_url',''))
+  INSERT INTO public.profiles (user_id, email, full_name, avatar_url, family_id)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name',''),
+    COALESCE(NEW.raw_user_meta_data->>'avatar_url',''),
+    (SELECT id FROM public.families WHERE name='G Family' LIMIT 1)
+  )
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END $$;
 
 DO $$
 BEGIN
-  -- Drop if exists to avoid duplicate trigger errors across replays
   IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='on_auth_user_created') THEN
     DROP TRIGGER on_auth_user_created ON auth.users;
   END IF;
@@ -97,7 +137,7 @@ BEGIN
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 END $$;
 
--- 5) RLS on profiles: self can read/update; inserts happen via trigger/service role
+-- 5) RLS on profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$
@@ -120,7 +160,7 @@ BEGIN
   END IF;
 END $$;
 
--- 6) me view: current user's profile + family name (safe to recreate)
+-- 6) me view
 CREATE OR REPLACE VIEW public.me AS
 SELECT
   p.user_id,
@@ -136,7 +176,7 @@ FROM public.profiles p
 LEFT JOIN public.families f ON f.id = p.family_id
 WHERE p.user_id = auth.uid();
 
--- 7) Convenience minimal view if you also need a compact variant
+-- 7) Compact variant
 CREATE OR REPLACE VIEW public.me_min AS
 SELECT p.user_id, p.full_name, p.role
 FROM public.profiles p
