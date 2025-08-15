@@ -2,12 +2,33 @@ import { supabase } from '../../web/supabaseClient.js';
 
 let _session = null;
 let _resolvers = [];
+let _initialized = false;
+
+export async function init() {
+  if (_initialized) return;
+  try {
+    await getSession();
+    _initialized = true;
+    // Emit initial state
+    window.dispatchEvent(new CustomEvent('session-changed', { detail: _session }));
+  } catch (error) {
+    // Never throw on auth skew, just log and continue
+    console.warn('Session init warning:', error);
+    _initialized = true;
+  }
+}
 
 export async function getSession() {
   if (_session) return _session;
-  const { data } = await supabase.auth.getSession();
-  _session = data?.session ?? null;
-  return _session;
+  try {
+    const { data } = await supabase.auth.getSession();
+    _session = data?.session ?? null;
+    return _session;
+  } catch (error) {
+    // Never throw on auth errors, return null session
+    console.warn('Session get warning:', error);
+    return null;
+  }
 }
 
 export async function waitForSession() {

@@ -5,7 +5,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
-import { wireAuthListener, waitForSession, getSession } from './lib/session-store.js';
+import { wireAuthListener, waitForSession, getSession, init } from './lib/session-store.js';
 import { WHITELISTED_EMAILS } from '../web/env.js';
 import { bootWarn } from './lib/log.js';
 import { logger } from './utils/logger.js';
@@ -114,6 +114,9 @@ export class FnApp extends LitElement {
         search: window.location.search
       });
       
+      // Initialize session store first - this never throws
+      await init();
+      
       wireAuthListener();
       
       // Ensure a visible skeleton immediately
@@ -133,13 +136,8 @@ export class FnApp extends LitElement {
         return;
       }
       
-      // Get initial session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        log.error('Session error:', sessionError);
-        throw sessionError;
-      }
+      // Get initial session (now safe due to init())
+      const session = await getSession();
       
       log.info('Initial session:', session?.user?.email || 'No session');
       
@@ -190,6 +188,25 @@ export class FnApp extends LitElement {
       }
       
       log.info('User authorized, loading home view');
+      
+      // Try to fetch user profile - if this fails, show "Finish setup" CTA
+      try {
+        const { getCurrentUserProfile } = await import('./services/db.js');
+        const { data: profile, error: profileError } = await getCurrentUserProfile(supabase, session.user.id);
+        
+        if (profileError) {
+          log.warn('Profile fetch failed:', profileError);
+          this.error = 'Profile setup incomplete. Please contact an administrator to finish your account setup.';
+          this.session = session;
+          this.loading = false;
+          return;
+        }
+        
+        log.info('Profile loaded successfully:', profile?.full_name || 'No name');
+      } catch (profileFetchError) {
+        log.warn('Profile fetch error (will continue):', profileFetchError);
+        // Continue anyway - the home view will handle missing profile gracefully
+      }
       
       // Start FamilyBot once per session
       const currentSessionId = session?.access_token ?? 'unknown';
