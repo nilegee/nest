@@ -163,13 +163,13 @@ BEGIN
               AND policyname = tbl || ' full_access_whitelist'
         ) INTO policy_exists;
 
-        -- Always drop old whitelist policy if exists
+        -- Always drop existing whitelist policy
         EXECUTE format(
             'DROP POLICY IF EXISTS "%I full_access_whitelist" ON public.%I',
             tbl, tbl
         );
 
-        -- Create whitelist policy only if it didn't exist before
+        -- Only create if missing
         IF NOT policy_exists THEN
             EXECUTE format(
                 'CREATE POLICY "%I full_access_whitelist" ON public.%I ' ||
