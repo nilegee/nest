@@ -153,12 +153,14 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name',''),
     COALESCE(NEW.raw_user_meta_data->>'avatar_url',''),
     (SELECT id FROM public.families WHERE name='G Family' LIMIT 1),
-    'member'
+    'member'::public.member_role
   )
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
-END $$;
+END;
+$$;
 
+-- 4a) Trigger creation (idempotent, modern syntax)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='on_auth_user_created') THEN
@@ -166,7 +168,7 @@ BEGIN
   END IF;
   CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 END $$;
 
 -- 5) RLS on profiles
