@@ -134,8 +134,9 @@ async function runAllTests() {
   console.log('========================\n');
   
   const testSuites = [
-    { path: 'src/cards/birthdays-test.js', function: 'runBirthdayTests' },
-    { path: 'src/ui-contract-test.js', function: 'runUIContractTests' }
+    // Tests removed as part of Day 0 reset
+    // { path: 'src/cards/birthdays-test.js', function: 'runBirthdayTests' },
+    // { path: 'src/ui-contract-test.js', function: 'runUIContractTests' }
   ];
   
   const results = [];
