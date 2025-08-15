@@ -168,10 +168,64 @@ on public.nudges for all
 using (family_id = public.current_family_id())
 with check (family_id = public.current_family_id());
 
--- 6) Missing RPC used by UI: ensure_family_for_user()
+-- 6) RLS: ACTS (family scoped, prevent recursion)
+alter table if exists public.acts enable row level security;
+
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='acts') then
+    execute (
+      select string_agg(format('drop policy if exists %I on public.acts;', polname), E'\n')
+      from pg_policies
+      where schemaname='public' and tablename='acts'
+    );
+  end if;
+end$$;
+
+create policy "acts.select.family"
+on public.acts for select
+using (family_id = public.current_family_id());
+
+create policy "acts.cud.family"
+on public.acts for all
+using (family_id = public.current_family_id())
+with check (family_id = public.current_family_id());
+
+-- 7) RLS: NOTES (family scoped, prevent recursion)
+alter table if exists public.notes enable row level security;
+
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname='public' and tablename='notes') then
+    execute (
+      select string_agg(format('drop policy if exists %I on public.notes;', polname), E'\n')
+      from pg_policies
+      where schemaname='public' and tablename='notes'
+    );
+  end if;
+end$$;
+
+create policy "notes.select.family"
+on public.notes for select
+using (family_id = public.current_family_id());
+
+create policy "notes.insert.family"
+on public.notes for insert
+with check (
+  author_id = auth.uid() 
+  and (family_id is null or family_id = public.current_family_id())
+);
+
+create policy "notes.update.author"
+on public.notes for update
+using (author_id = auth.uid())
+with check (author_id = auth.uid());
+
+-- 8) Missing RPC used by UI: ensure_family_for_user()
 -- Creates a family for the current user if none set; ensures a profile row exists.
+-- Returns the family_id as expected by the JavaScript client.
 create or replace function public.ensure_family_for_user()
-returns void
+returns uuid
 language plpgsql
 security definer
 set search_path = public
@@ -204,6 +258,12 @@ begin
     update public.profiles
     set family_id = fam_id
     where user_id = uid;
+    
+    -- Return the newly created family_id
+    return fam_id;
+  else
+    -- Return the existing family_id
+    return prof.family_id;
   end if;
 end;
 $$;
