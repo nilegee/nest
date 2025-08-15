@@ -49,9 +49,18 @@ BEGIN
   END IF;
 END $$;
 
--- 2a) Ensure unique index on families.name
-ALTER TABLE public.families
-  ADD CONSTRAINT IF NOT EXISTS families_name_key UNIQUE (name);
+-- 2a) Ensure UNIQUE on families.name (valid Postgres pattern)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'families_name_key'
+  ) THEN
+    ALTER TABLE public.families
+      ADD CONSTRAINT families_name_key UNIQUE (name);
+  END IF;
+END $$;
 
 -- 3) Ensure profiles table exists with family_id
 DO $$
@@ -137,7 +146,7 @@ BEGIN
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 END $$;
 
--- 5) RLS on profiles
+-- 5) RLS on profiles: self can read/update
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$
