@@ -37,7 +37,46 @@ create table if not exists public.wishlist(
   created_at timestamptz default now()
 );
 
-create type if not exists act_kind as enum ('chore_complete','goal_progress','post','habit');
+-- Idempotent enum creation / extension
+do $$
+begin
+  -- Create the enum if it doesn't exist
+  if not exists (
+    select 1 from pg_type t where t.typname = 'act_kind'
+  ) then
+    create type act_kind as enum ('chore_complete','goal_progress','post','habit');
+  else
+    -- Ensure every label exists (no-op if already present)
+    if not exists (
+      select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+      where t.typname = 'act_kind' and e.enumlabel = 'chore_complete'
+    ) then
+      alter type act_kind add value 'chore_complete';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+      where t.typname = 'act_kind' and e.enumlabel = 'goal_progress'
+    ) then
+      alter type act_kind add value 'goal_progress';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+      where t.typname = 'act_kind' and e.enumlabel = 'post'
+    ) then
+      alter type act_kind add value 'post';
+    end if;
+
+    if not exists (
+      select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+      where t.typname = 'act_kind' and e.enumlabel = 'habit'
+    ) then
+      alter type act_kind add value 'habit';
+    end if;
+  end if;
+end
+$$;
 
 create table if not exists public.acts(
   id uuid primary key default gen_random_uuid(),
