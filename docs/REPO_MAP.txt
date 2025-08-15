@@ -1,0 +1,123 @@
+# Repository Structure Map
+# Phase 1 Family OS Implementation
+
+## Root Structure
+```
+/index.html                     # CDN entry point with fallback handling
+/README.md                      # Project documentation with Phase 1 overview
+/AGENTS.md                      # Development guidelines and agent specifications
+/.env.example                   # Environment variables template
+/.gitignore                     # Git ignore rules
+/package.json                   # NPM dependencies (test-only)
+```
+
+## Source Code (`/src/`)
+```
+/src/fn-app.js                  # Main application component with auth routing
+/src/fn-landing.js              # Login view (Google OAuth + magic link)
+/src/fn-home.js                 # Dashboard shell with navigation and routing
+
+## Phase 1 Views
+/src/views/events-view.js       # Events management (EventAgent)
+/src/views/feed-view.js         # Family Wall posts (FeedAgent)
+
+## Phase 1 Components  
+/src/components/profile-overlay.js  # Profile display with stats (ProfileAgent)
+
+## Phase 1 Cards
+/src/cards/islamic-guidance-card.js # Islamic guidance widget (IslamicGuidanceAgent)
+```
+
+## Database (`/supabase/`)
+```
+/supabase/migrations/
+  20250815172758_baseline.sql   # Initial schema
+  20250815180837_phase1.sql     # Phase 1 tables and policies
+/supabase/schema_inferred.sql   # Complete schema definition
+/supabase/SCHEMA_MAP.md         # Database documentation
+```
+
+## Web Assets (`/web/`)
+```
+/web/supabaseClient.js          # Supabase client configuration
+/web/env.js                     # Generated environment variables
+```
+
+## Scripts & Tools (`/scripts/`)
+```
+/scripts/sync-env.mjs           # Environment sync utility
+/scripts/verify-*.sql           # Database verification scripts
+/scripts/seed_minimal.sql       # Database seeding
+```
+
+## Legacy Database (`/db/`)
+```
+/db/schema.sql                  # Legacy schema file
+/db/migration_familybot.sql     # FamilyBot features migration
+```
+
+## Testing (`/test/`)
+```
+/test/ui-contract-test.js       # Component integration tests
+/test/verification.js           # Database verification tests
+/test/comprehensive-verification.js  # Full system tests
+```
+
+## CI/CD (`/.github/`)
+```
+/.github/workflows/             # GitHub Actions workflows
+/.github/docs/                  # CI documentation
+```
+
+## Documentation (`/docs/`)
+```
+/docs/REPO_MAP.txt             # This file - repository structure guide
+```
+
+## Phase 1 Features Map
+
+### Navigation Structure
+- Dashboard (default) - Greeting + Islamic guidance + quick links
+- Events - Family event management with CRUD operations  
+- Family Wall - Post sharing with media support
+
+### Component Hierarchy
+```
+fn-app (auth router)
+└── fn-home (dashboard shell)
+    ├── Sidebar Navigation
+    ├── Main Content Area
+    │   ├── events-view (EventAgent)
+    │   ├── feed-view (FeedAgent)  
+    │   └── dashboard (default view)
+    │       ├── islamic-guidance-card (IslamicGuidanceAgent)
+    │       └── quick-link cards
+    └── profile-overlay (ProfileAgent) - modal component
+```
+
+### Database Tables (Phase 1)
+- `events` - Family events with type classification
+- `posts` - Family wall posts with media support
+- `islamic_guidance` - Daily Islamic wisdom and guidance
+- `profiles` - User profiles (inherited from baseline)
+- `families` - Family organization (inherited from baseline)
+
+### Integration Points
+- All user names/photos are clickable → opens profile-overlay
+- Navigation hash-based routing (#dashboard, #events, #feed)
+- Profile overlay triggered by custom events from components
+- Islamic guidance card is self-contained and removable
+
+### File Dependencies
+```
+fn-home.js imports:
+├── views/events-view.js
+├── views/feed-view.js  
+├── components/profile-overlay.js
+└── cards/islamic-guidance-card.js
+
+All components depend on:
+├── Lit 3 (CDN)
+├── Iconify icons (CDN)
+└── supabaseClient.js
+```

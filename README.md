@@ -39,9 +39,28 @@ Seed statements remain commented because they require real `auth.users` UUIDs.
 
 ## Purpose
 
-Private family hub with two views:
+Private family hub implementing **Phase 1 Family OS** with psychology-informed and Islamic values-focused features:
 - **Landing**: Public login page (Google OAuth + Magic Link)
 - **Home/Nest**: Private dashboard with family features
+- **Events**: Family event management and calendar
+- **Family Wall**: Post sharing and communication
+- **Profile Overlay**: Member insights with kindness tracking
+- **Islamic Guidance**: Daily spiritual guidance and wisdom
+
+### Modules Implemented
+
+- **Events Module**: CRUD operations for family events (birthdays, anniversaries, custom)
+- **Family Wall Module**: Post composer with media support and reverse chronological feed  
+- **Profile Overlay Module**: Member profiles with activity stats and recent posts
+- **Islamic Guidance Card Module**: Removable daily guidance with Qur'an verses and hadith
+
+### Psychology & Islamic Values Vision
+
+This family hub is built on principles of:
+- **Positive Psychology**: Celebrating achievements, building streaks, gentle encouragement
+- **Islamic Family Values**: Daily guidance, community support, gratitude practices
+- **Soft Competition**: Badges and progress tracking that build up rather than compete
+- **Micro-interactions**: Small, meaningful moments that strengthen family bonds
 
 ## Stack
 
