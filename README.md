@@ -185,6 +185,11 @@ Ensure `.env.local` is configured and `node ./scripts/sync-env.mjs` has generate
 
 **Complete documentation**: See `supabase/README.md`
 
+### Database schema workflow
+
+- **PRs**: A check named "PR DB Change Watch" fails if files under supabase/migrations change; add label `db-migrations-ok` after review.
+- **To initialize an empty DB**: Actions → "Bootstrap DB from Migrations (manual)" → Run.
+
 ## QA Checklist
 
 **Login Success**:
