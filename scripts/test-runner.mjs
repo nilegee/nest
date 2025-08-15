@@ -83,39 +83,46 @@ async function runTestModule(testPath, testFunction) {
     if (typeof testModule[testFunction] === 'function') {
       const result = await testModule[testFunction]();
       
-      if (result && typeof result === 'object' && 'passed' in result) {
-        const { passed, results } = result;
-        
-        results.forEach(result => {
-          const status = result.status === 'PASS' ? '✅' : '❌';
-          console.log(`  ${status} ${result.test}`);
-          if (result.error) {
-            // Skip CDN import errors for now
-            if (result.error.includes('https:')) {
-              console.log(`     Info: Skipped CDN import test (${result.error.split(':')[0]})`);
-            } else {
-              console.log(`     Error: ${result.error}`);
+      // Handle both old format (runBirthdayTests, runUIContractTests) and new format (runAndLog* functions)
+      if (result && typeof result === 'object') {
+        if ('passed' in result && 'results' in result) {
+          // Old format
+          const { passed, results } = result;
+          
+          results.forEach(result => {
+            const status = result.status === 'PASS' ? '✅' : '❌';
+            console.log(`  ${status} ${result.test}`);
+            if (result.error) {
+              // Skip CDN import errors for now
+              if (result.error.includes('https:')) {
+                console.log(`     Info: Skipped CDN import test (${result.error.split(':')[0]})`);
+              } else {
+                console.log(`     Error: ${result.error}`);
+              }
             }
-          }
-          if (result.details) {
-            console.log(`     Details: ${result.details}`);
-          }
-        });
-        
-        // Don't fail on CDN import errors
-        const actualResults = results.filter(r => 
-          !(r.status === 'FAIL' && r.error && r.error.includes('https:'))
-        );
-        const actualPassed = actualResults.every(r => r.status === 'PASS');
-        const passCount = actualResults.filter(r => r.status === 'PASS').length;
-        
-        console.log(`  📊 Result: ${actualPassed ? '✅ PASSED' : '❌ FAILED'} (${passCount}/${actualResults.length})`);
-        
-        return { passed: actualPassed, results: actualResults, module: testPath };
-      } else {
-        console.log('  ❌ Test function did not return expected result format');
-        return { passed: false, results: [], module: testPath };
+            if (result.details) {
+              console.log(`     Details: ${result.details}`);
+            }
+          });
+          
+          // Don't fail on CDN import errors
+          const actualResults = results.filter(r => 
+            !(r.status === 'FAIL' && r.error && r.error.includes('https:'))
+          );
+          const actualPassed = actualResults.every(r => r.status === 'PASS');
+          const passCount = actualResults.filter(r => r.status === 'PASS').length;
+          
+          console.log(`  📊 Result: ${actualPassed ? '✅ PASSED' : '❌ FAILED'} (${passCount}/${actualResults.length})`);
+          
+          return { passed: actualPassed, results: actualResults, module: testPath };
+        } else if ('success' in result && 'passed' in result && 'total' in result) {
+          // New format (already logged by the function)
+          return { passed: result.success, results: [{ status: result.success ? 'PASS' : 'FAIL', test: 'Test suite' }], module: testPath };
+        }
       }
+      
+      console.log('  ❌ Test function did not return expected result format');
+      return { passed: false, results: [], module: testPath };
     } else {
       console.log(`  ❌ Test function '${testFunction}' not found in module`);
       return { passed: false, results: [], module: testPath };
@@ -135,7 +142,11 @@ async function runAllTests() {
   
   const testSuites = [
     { path: 'src/cards/birthdays-test.js', function: 'runBirthdayTests' },
-    { path: 'src/ui-contract-test.js', function: 'runUIContractTests' }
+    { path: 'src/ui-contract-test.js', function: 'runUIContractTests' },
+    { path: 'test/event-bus.spec.js', function: 'runAndLogEventBusTests' },
+    { path: 'test/db-call.spec.js', function: 'runAndLogDbCallTests' },
+    { path: 'test/context-store.spec.js', function: 'runAndLogContextStoreTests' },
+    { path: 'test/rate-limit.spec.js', function: 'runAndLogRateLimitTests' }
   ];
   
   const results = [];
