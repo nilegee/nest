@@ -2,6 +2,12 @@ name: Detect DB changes
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: db-detect-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   detect:
@@ -9,11 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0       # we need history to diff reliably
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - name: Run detector
-        run: node scripts/db-change-detect.mjs
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/db-change-detect.mjs
