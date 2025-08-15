@@ -1,7 +1,6 @@
 -- ============================================
 -- ENSURE profiles.user_id IS UNIQUE
 -- ============================================
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -18,7 +17,6 @@ END $$;
 -- ============================================
 -- FIX posts.author_id FOREIGN KEY
 -- ============================================
-
 ALTER TABLE IF EXISTS public.posts
 DROP CONSTRAINT IF EXISTS posts_author_id_fkey;
 
@@ -31,7 +29,6 @@ ON DELETE CASCADE;
 -- ============================================
 -- RLS POLICY FIXES
 -- ============================================
-
 -- PROFILES
 DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
 DROP POLICY IF EXISTS "profiles self update" ON public.profiles;
@@ -140,37 +137,38 @@ CREATE POLICY "families member read" ON public.families
   );
 
 -- ============================================
--- FULL-ACCESS WHITELIST POLICIES
+-- ENABLE RLS + CREATE FULL-ACCESS WHITELIST POLICIES ON ALL TABLES
 -- ============================================
-
 DO $$
 DECLARE
-    tbl text;
-    policy_exists boolean;
+    tbl TEXT;
+    policy_exists BOOLEAN;
 BEGIN
     FOR tbl IN
-        SELECT tablename
-        FROM pg_tables
-        WHERE schemaname = 'public'
-          AND tablename IN ('profiles', 'events', 'posts', 'families', 'islamic_guidance')
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
     LOOP
-        -- Check if the whitelist policy already exists
+        -- Enable RLS
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl);
+
+        -- Check if whitelist policy already exists
         SELECT EXISTS (
             SELECT 1
             FROM pg_policies
             WHERE schemaname = 'public'
               AND tablename = tbl
               AND policyname = tbl || ' full_access_whitelist'
-        )
-        INTO policy_exists;
+        ) INTO policy_exists;
 
-        -- Always drop first
+        -- Always drop old whitelist policy if exists
         EXECUTE format(
             'DROP POLICY IF EXISTS "%I full_access_whitelist" ON public.%I',
             tbl, tbl
         );
 
-        -- Recreate only if it didn't exist before
+        -- Create whitelist policy only if it didn't exist before
         IF NOT policy_exists THEN
             EXECUTE format($f$
                 CREATE POLICY "%I full_access_whitelist" ON public.%I
