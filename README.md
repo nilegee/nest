@@ -1,296 +1,183 @@
-# nest 🏠
+# Supabase CLI
 
-[![CI Tests](https://github.com/nilegee/nest/actions/workflows/ci.yml/badge.svg)](https://github.com/nilegee/nest/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-**TL;DR**: Zero‑build private family hub with Landing (public login) and Home/Nest (private dashboard). Lit + Iconify + Supabase, hosted on GitHub Pages, email whitelist + strict RLS.
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-## ⚠️ DANGER: Manual Database Reset
+This repository contains all the functionality for Supabase CLI.
 
-This project includes a manual GitHub Action that **DESTROYS ALL PUBLIC DATA** and recreates the database from `db/schema.sql`.
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-> **⚡ Preferred**: Use the new migration workflow in `supabase/migrations/` for schema changes. This reset is only for emergencies.
+## Getting started
 
-### How to run safely
+### Install the CLI
 
-1. **Set repository secrets:**
-   - `DATABASE_URL` → full Postgres URL from Supabase
-   - `CONFIRM_DB_RESET` → set to `TRUE`
-
-2. **Go to Actions → Manual DB Reset (Danger) → Run workflow**
-
-3. **Enter `ERASE_AND_APPLY` in the confirm field and run.**
-
-The workflow:
-- Backs up the current DB with `pg_dump` (artifact)
-- Applies `db/schema.sql`
-- Verifies RLS and schema (fails on drift)
-
-### Local apply (alternative)
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-rls.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-schema.sql
+npm i supabase --save-dev
 ```
 
-### Seeding
-
-Seed statements remain commented because they require real `auth.users` UUIDs.
-
-## Purpose
-
-Private family hub implementing **Phase 1 Family OS** with psychology-informed and Islamic values-focused features:
-- **Landing**: Public login page (Google OAuth + Magic Link)
-- **Home/Nest**: Private dashboard with family features
-- **Events**: Family event management and calendar
-- **Family Wall**: Post sharing and communication
-- **Profile Overlay**: Member insights with kindness tracking
-- **Islamic Guidance**: Daily spiritual guidance and wisdom
-
-### Modules Implemented
-
-- **Events Module**: CRUD operations for family events (birthdays, anniversaries, custom)
-- **Family Wall Module**: Post composer with media support and reverse chronological feed  
-- **Profile Overlay Module**: Member profiles with activity stats and recent posts
-- **Islamic Guidance Card Module**: Removable daily guidance with Qur'an verses and hadith
-
-### Psychology & Islamic Values Vision
-
-This family hub is built on principles of:
-- **Positive Psychology**: Celebrating achievements, building streaks, gentle encouragement
-- **Islamic Family Values**: Daily guidance, community support, gratitude practices
-- **Soft Competition**: Badges and progress tracking that build up rather than compete
-- **Micro-interactions**: Small, meaningful moments that strengthen family bonds
-
-## Stack
-
-- **Lit 3** (CDN): Web components framework
-- **Iconify icons** (CDN): Web component icons
-- **Supabase JS** (CDN): Memory‑only auth (no localStorage)
-- **GitHub Pages**: Static hosting
-
-## Features
-
-- **Greeting**: Personalized welcome with current date
-- **One Gentle Action**: Daily completion with celebration
-- **Composer + feed placeholder**: Family post sharing area
-- **Upcoming Events**: Family calendar integration
-- **Birthdays & Celebrations**: Computed from date of birth
-- **Family Goal**: Shared progress tracking
-- **Do You Know?**: Tips and family knowledge
-- **Quick Actions**: Desktop sidebar shortcuts
-- **Responsive navigation**: Left nav (desktop) / bottom tabs (mobile)
-
-## Security
-
-- **Email whitelist**: Only specified emails can access
-- **Strict RLS**: Row Level Security policies in Supabase
-- **No secrets in repo**: Environment variables via .env.local
-- **Anon key is client‑side by design**: Public key, security via RLS
-
-## Environment Setup
-
-Create `.env.local`:
+To install the beta release channel:
 
 ```bash
-SUPABASE_URL=https://zlhamcofzyozfyzcgcdg.supabase.co
-SUPABASE_ANON_KEY=…(given)…
-WHITELISTED_EMAILS=yazidgeemail@gmail.com,yahyageemail@gmail.com,abdessamia.mariem@gmail.com,nilezat@gmail.com
+npm i supabase@beta --save-dev
 ```
 
-Generate `/web/env.js` (ES module):
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
+
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+
+<details>
+  <summary><b>macOS</b></summary>
+
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
 
 ```bash
-node ./scripts/sync-env.mjs
+supabase bootstrap
 ```
 
-**Note**: `.env.local` stays git‑ignored; `env.js` is committed.
-
-## Auth/OAuth
-
-- **Google & Magic Link** with `redirectTo: https://nilegee.github.io/nest/`
-- On page load: call `getSession()` and swap Landing/Home views
-- **Email validation**: If not whitelisted, show friendly error and sign out
-- **Memory‑only sessions**: Uses Supabase sessionStorage, no localStorage
-
-## Running Locally
+Or using npx:
 
 ```bash
-npx serve .
+npx supabase bootstrap
 ```
 
-Open `http://localhost:3000` (or shown port).
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
 
-**No build step required** — serve static files directly.
+## Docs
 
-## Deploy
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
 
-1. **GitHub Pages** → Settings → Pages
-2. **Source**: Deploy from a branch → `main` / `root`
-3. **Live at**: `https://nilegee.github.io/nest/`
+## Breaking changes
 
-Ensure `.env.local` is configured and `node ./scripts/sync-env.mjs` has generated `web/env.js` before pushing.
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
 
-## Accessibility & Performance
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
 
-- **Landmarks**: `<nav>`, `<main>`, `<aside>` structure
-- **Focus rings**: Visible on all interactive elements
-- **Reduced motion**: Respects `prefers-reduced-motion`
-- **Lighthouse ≥90**: Performance, Accessibility, Best Practices, SEO
-- **Zero console errors**: Clean runtime environment
+## Developing
 
-## Structure
+To run from source:
 
+```sh
+# Go >= 1.22
+go run . help
 ```
-/index.html                    # Root with CDN imports
-/src/                          # Lit components
-  fn-app.js                    # Session guard + layout shell
-  fn-landing.js                # Login view (Google + magic link)
-  fn-home.js                   # Nest (dashboard) view
-  components/                  # Reusable UI components
-/cards/                        # Self-contained card modules
-  nest-cards.js                # renderNestCards() + registerNestCard()
-  birthdays.js                 # getUpcomingBirthdays()
-  events.js                    # getUpcomingEvents()
-/web/                          # Environment and client setup
-  supabaseClient.js            # createClient with persistSession:false
-  env.js                       # Generated from .env.local
-/db/schema.sql                 # Tables + RLS policies (legacy)
-/supabase/                     # Migration-based schema management
-  migrations/                  # Timestamped SQL migration files
-  README.md                    # Migration workflow documentation
-/docs/QA.md                    # Smoke test procedures
-```
-
-## Database Migrations
-
-**New schema changes use the migration-based workflow:**
-
-- **Location**: `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
-- **Deployment**: Manual-only via GitHub Actions for safety
-- **Rule**: Never apply manual database changes—commit and push only
-
-### Adding Schema Changes
-
-1. Create timestamped migration file:
-   ```bash
-   touch supabase/migrations/$(date -u +"%Y%m%d%H%M%S")_your_change.sql
-   ```
-
-2. Write your SQL migration:
-   ```sql
-   CREATE TABLE IF NOT EXISTS new_table (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     created_at TIMESTAMPTZ DEFAULT NOW()
-   );
-   ```
-
-3. Commit and push:
-   ```bash
-   git add supabase/migrations/ && git commit -m "Add new table" && git push
-   ```
-
-4. **Deploy migrations manually**:
-   - **How to run**: Actions tab → Deploy Database Migrations → Run workflow → select `main`
-   - **Guardrails**: manual-only, concurrency protection, only for `main` branch
-   - **Later**: Switch to auto-trigger by adding:
-     ```yaml
-     on:
-       push:
-         branches: [ main ]
-         paths:
-           - "supabase/migrations/**"
-     ```
-
-**Complete documentation**: See `supabase/README.md`
-
-### Database schema workflow
-
-- **PRs**: A check named "PR DB Change Watch" fails if files under supabase/migrations change; add label `db-migrations-ok` after review.
-- **To initialize an empty DB**: Actions → "Bootstrap DB from Migrations (manual)" → Run.
-
-## Migration Rules – Family OS Project
-
-**1. One migration file per phase/feature**  
-Never create multiple migration files for the same phase.  
-Example:  
-- ✅ 20250815172758_baseline.sql  
-- ✅ 20250815180837_phase1.sql  
-- ❌ Separate migrations for events and posts if both belong to Phase 1.
-
-**2. Descriptive file naming**  
-
-YYYYMMDDHHMMSS_<phase-or-feature>.sql
-
-UTC timestamp + lowercase, underscores for spaces.  
-Example: `20250822_phase2_chores_goals.sql`
-
-**3. Always self-contained**  
-- CREATE TABLE IF NOT EXISTS before any ALTER TABLE.  
-- Use DO $$ blocks to ALTER only if table exists.  
-- RLS policies after table creation.
-
-**4. No temporary/probe migrations**  
-- Test locally, commit only real schema changes.
-
-**5. Keep migrations readable**  
-- Organize: header comment, table creation/alter, RLS, indexes, end comment.
-
-**6. Migration checklist**  
-- Name follows format  
-- One file per feature/phase  
-- Self-contained table creation + RLS  
-- No commented-out junk or test data
-
-**7. Auto-deploy**  
-- Only via deploy-migrations.yml  
-- Never apply schema changes manually in Supabase UI.
-
-## QA Checklist
-
-**Login Success**:
-- [ ] Google OAuth redirects correctly
-- [ ] Magic link email received and works
-- [ ] Whitelisted email accesses Home/Nest view
-- [ ] Session persists within browser tab
-
-**Whitelist Rejection**:
-- [ ] Non-whitelisted email shows friendly error
-- [ ] User automatically signed out
-- [ ] Returns to Landing page
-
-**Layout Consistency**:
-- [ ] Same cards appear on desktop sidebar and mobile inline
-- [ ] Desktop: left nav (76px collapsed, 240px expanded) + main + right sidebar (320px)
-- [ ] Mobile: single column + bottom tabs (60px height)
-
-**Sticky Sidebar**:
-- [ ] Desktop right sidebar remains fixed during scroll
-- [ ] Cards maintain position relative to viewport
-
-**Birthdays Sorted**:
-- [ ] Upcoming birthdays display in chronological order
-- [ ] Birthday countdowns calculate correctly from DOB
-- [ ] "Today" birthdays show celebration animation
-
-**Console Cleanliness**:
-- [ ] Zero JavaScript errors
-- [ ] Zero 404 errors for resources
-- [ ] Only expected informational logs
-
-For complete QA procedures, see `docs/QA.md`.
-
----
-
-**Made with ❤️ for families who want to stay connected.**
-
-## Database schema workflow
-
-**Secret:** In GitHub → Settings → Secrets and variables → Actions, set `DATABASE_URL` to your Supabase **Session Pooler** URI **including** `?sslmode=require`, for example:
-`postgresql://<user>:<pass>@aws-0-<region>.pooler.supabase.com:6543/postgres?sslmode=require`
-
-### Daily routine
-1. (Optional) Pull baseline from remote
-   ```bash
-   supabase db pull --db-url "$DATABASE_URL"
-   ```
