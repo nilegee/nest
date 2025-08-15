@@ -397,6 +397,13 @@
   - [ ] No CORS errors
   - [ ] Only expected informational logs
 
+- [ ] **Database Error Resolution (Fixed)**
+  - [x] Fixed 403 Forbidden errors on `me` view access (added proper RLS policies)
+  - [x] Fixed 400 Bad Request errors on profiles table (added missing `dob` column)
+  - [x] Fixed 403 Forbidden errors on nudges table (added INSERT policy for FamilyBot)
+  - [x] Fixed missing family member access to profiles (added family-scoped RLS policy)
+  - [x] All database migrations are properly applied and idempotent
+
 - [ ] **Production Console Cleanliness**
   - [ ] In production build: zero info/warn logs; only real errors
 
