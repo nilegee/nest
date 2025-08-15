@@ -1,6 +1,0 @@
-"type:db":
-  - "supabase/**"
-"type:ci":
-  - ".github/workflows/**"
-"type:frontend":
-  - "src/**"
