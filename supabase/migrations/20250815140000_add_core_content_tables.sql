@@ -55,62 +55,139 @@ ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.acts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for family-scoped reading
-CREATE POLICY "events: read family scope"
-ON public.events FOR SELECT
-USING (family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid()));
+-- EVENTS policies (idempotent)
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'events'
+      and policyname = 'events: read family scope'
+  ) then
+    create policy "events: read family scope" on public.events
+      for select using (
+        family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid())
+      );
+  end if;
 
-CREATE POLICY "posts: read family scope"
-ON public.posts FOR SELECT
-USING (family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid()));
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'events'
+      and policyname = 'events: owner write'
+  ) then
+    create policy "events: owner write" on public.events
+      for all using (owner_id = auth.uid());
+  end if;
 
-CREATE POLICY "acts: read family scope"
-ON public.acts FOR SELECT
-USING (family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid()));
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'events'
+      and policyname = 'events: admin manage'
+  ) then
+    create policy "events: admin manage" on public.events
+      for all using (
+        EXISTS (
+          SELECT 1 FROM public.profiles ap
+          WHERE ap.user_id = auth.uid()
+            AND ap.family_id = events.family_id
+            AND ap.role = 'admin'
+        )
+      );
+  end if;
+end $$;
 
-CREATE POLICY "notes: read family scope"
-ON public.notes FOR SELECT
-USING (family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid()));
+-- POSTS policies (idempotent)
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'posts'
+      and policyname = 'posts: read family scope'
+  ) then
+    create policy "posts: read family scope" on public.posts
+      for select using (
+        family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid())
+      );
+  end if;
 
--- Write policies for owners
-CREATE POLICY "events: owner write"
-ON public.events FOR ALL
-USING (owner_id = auth.uid());
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'posts'
+      and policyname = 'posts: author write'
+  ) then
+    create policy "posts: author write" on public.posts
+      for all using (author_id = auth.uid());
+  end if;
+end $$;
 
-CREATE POLICY "posts: author write"
-ON public.posts FOR ALL
-USING (author_id = auth.uid());
+-- ACTS policies (idempotent)
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'acts'
+      and policyname = 'acts: read family scope'
+  ) then
+    create policy "acts: read family scope" on public.acts
+      for select using (
+        family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid())
+      );
+  end if;
 
-CREATE POLICY "acts: user write"
-ON public.acts FOR ALL
-USING (user_id = auth.uid());
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'acts'
+      and policyname = 'acts: user write'
+  ) then
+    create policy "acts: user write" on public.acts
+      for all using (user_id = auth.uid());
+  end if;
+end $$;
 
-CREATE POLICY "notes: author write"
-ON public.notes FOR ALL
-USING (author_id = auth.uid());
+-- NOTES policies (idempotent)
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'notes'
+      and policyname = 'notes: read family scope'
+  ) then
+    create policy "notes: read family scope" on public.notes
+      for select using (
+        family_id = (SELECT family_id FROM public.profiles WHERE user_id = auth.uid())
+      );
+  end if;
 
--- Admin policies
-CREATE POLICY "events: admin manage"
-ON public.events FOR ALL
-USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles ap
-    WHERE ap.user_id = auth.uid()
-      AND ap.family_id = events.family_id
-      AND ap.role = 'admin'
-  )
-);
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'notes'
+      and policyname = 'notes: author write'
+  ) then
+    create policy "notes: author write" on public.notes
+      for all using (author_id = auth.uid());
+  end if;
 
-CREATE POLICY "notes: admin manage"
-ON public.notes FOR ALL
-USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles ap
-    WHERE ap.user_id = auth.uid()
-      AND ap.family_id = notes.family_id
-      AND ap.role = 'admin'
-  )
-);
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'notes'
+      and policyname = 'notes: admin manage'
+  ) then
+    create policy "notes: admin manage" on public.notes
+      for all using (
+        EXISTS (
+          SELECT 1 FROM public.profiles ap
+          WHERE ap.user_id = auth.uid()
+            AND ap.family_id = notes.family_id
+            AND ap.role = 'admin'
+        )
+      );
+  end if;
+end $$;
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS events_family_idx ON public.events(family_id);
