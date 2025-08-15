@@ -410,15 +410,15 @@ export class FnHome extends LitElement {
     if (outlet) {
       initRouter(outlet);
       
-      // Register all routes
-      registerRoute('nest', () => html`<nest-view></nest-view>`);
-      registerRoute('feed', () => html`<feed-view></feed-view>`);
-      registerRoute('events', () => html`<events-view></events-view>`);
-      registerRoute('goals', () => html`<goals-view></goals-view>`);
-      registerRoute('chores', () => html`<chores-view></chores-view>`);
-      registerRoute('notes', () => html`<notes-view></notes-view>`);
-      registerRoute('profile', () => html`<profile-view></profile-view>`);
-      registerRoute('insights', () => html`<insights-view></insights-view>`);
+      // Register all routes with profile check
+      registerRoute('nest', () => this.userProfile ? html`<nest-view></nest-view>` : this.renderSetupCTA());
+      registerRoute('feed', () => this.userProfile ? html`<feed-view></feed-view>` : this.renderSetupCTA());
+      registerRoute('events', () => this.userProfile ? html`<events-view></events-view>` : this.renderSetupCTA());
+      registerRoute('goals', () => this.userProfile ? html`<goals-view></goals-view>` : this.renderSetupCTA());
+      registerRoute('chores', () => this.userProfile ? html`<chores-view></chores-view>` : this.renderSetupCTA());
+      registerRoute('notes', () => this.userProfile ? html`<notes-view></notes-view>` : this.renderSetupCTA());
+      registerRoute('profile', () => html`<profile-view></profile-view>`); // Always allow profile access
+      registerRoute('insights', () => this.userProfile ? html`<insights-view></insights-view>` : this.renderSetupCTA());
     }
     
     // Listen for route changes to update nav state
@@ -563,7 +563,9 @@ export class FnHome extends LitElement {
       const { data, error } = await db.getCurrentUserProfile(supabase, this.session?.user?.id);
       
       if (error) {
-        showError('Error loading profile');
+        console.log('Profile loading failed - likely due to missing migrations or RLS setup');
+        // Instead of showing error, set a flag to render "Finish setup" CTA
+        this.userProfile = null;
         return;
       }
       
@@ -576,8 +578,30 @@ export class FnHome extends LitElement {
       }
     } catch (error) {
       console.log('Profile loading failed - likely due to missing migrations or RLS setup');
-      showError('Failed to load profile');
+      // Instead of showing error, set a flag to render "Finish setup" CTA
+      this.userProfile = null;
     }
+  }
+
+  /**
+   * Render "Finish setup" CTA when profile loading fails
+   */
+  renderSetupCTA() {
+    return html`
+      <div style="padding: 40px 20px; text-align: center; max-width: 400px; margin: 0 auto;">
+        <iconify-icon icon="material-symbols:settings" style="font-size: 48px; color: var(--primary); margin-bottom: 16px;"></iconify-icon>
+        <h2 style="margin-bottom: 12px; color: var(--text);">Finish Setup</h2>
+        <p style="margin-bottom: 24px; color: var(--text-secondary);">
+          Complete your profile setup to access all FamilyNest features.
+        </p>
+        <button 
+          class="btn-primary" 
+          @click=${() => navigate('profile')}
+          style="background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: var(--radius, 8px); cursor: pointer;">
+          Complete Setup
+        </button>
+      </div>
+    `;
   }
 
   /**

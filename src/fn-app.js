@@ -5,7 +5,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
-import { wireAuthListener, waitForSession, getSession } from './lib/session-store.js';
+import { wireAuthListener, waitForSession, getSession, init as sessionStoreInit } from './lib/session-store.js';
 import { WHITELISTED_EMAILS } from '../web/env.js';
 import { bootWarn } from './lib/log.js';
 import { logger } from './utils/logger.js';
@@ -113,6 +113,9 @@ export class FnApp extends LitElement {
         hash: window.location.hash,
         search: window.location.search
       });
+      
+      // Initialize session store first
+      await sessionStoreInit();
       
       wireAuthListener();
       
