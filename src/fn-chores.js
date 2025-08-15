@@ -7,6 +7,7 @@ import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 import { FamilyBot } from './fn-family-bot.js';
 import { showSuccess, showError } from './toast-helper.js';
+import { withFamily } from './services/db.js';
 
 // TODO: Remove KIND_MAP once DB acts_kind_check is updated to new values
 const KIND_MAP = {
@@ -482,8 +483,7 @@ export class FnChores extends LitElement {
         .single();
 
       // Prepare the payload and apply kind mapping
-      const payload = {
-        family_id: profile.family_id,
+      const payload = await withFamily({
         user_id: this.newChore.assignee,
         kind: 'chore',
         points: this.newChore.points,
@@ -492,7 +492,7 @@ export class FnChores extends LitElement {
           status: 'todo',
           assigned_by: this.session.user.id
         }
-      };
+      }, profile);
 
       if (payload.kind && KIND_MAP[payload.kind]) {
         payload.kind = KIND_MAP[payload.kind];

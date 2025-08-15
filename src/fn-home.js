@@ -15,6 +15,7 @@ import { scheduleBirthdaysFor } from './cards/birthdays.js';
 import { initRouter, registerRoute, navigate } from './router/router.js';
 import * as sessionStore from './services/session-store.js';
 import * as db from './services/db.js';
+import { ensureFamilyId } from './services/db.js';
 
 // Import views
 import './views/nest-view.js';
@@ -548,6 +549,9 @@ export class FnHome extends LitElement {
     try {
       await this.loadUserProfile();
       
+      // Only proceed with family data if we have a profile with family_id
+      if (!this.userProfile?.family_id) return;
+      
       // Schedule birthday reminders for the user
       await scheduleBirthdaysFor(this.session.user.id);
     } catch (error) {
@@ -584,6 +588,21 @@ export class FnHome extends LitElement {
   }
 
   /**
+   * Handle family setup and retry profile loading
+   */
+  async handleFinishSetup() {
+    try {
+      showLoading('Setting up family...');
+      await ensureFamilyId();
+      await this.loadProfile();
+      showSuccess('Family setup complete!');
+    } catch (error) {
+      console.error('Family setup failed:', error);
+      showError('Setup failed. Please try again.');
+    }
+  }
+
+  /**
    * Render "Finish setup" CTA when profile loading fails
    */
   renderSetupCTA() {
@@ -596,7 +615,7 @@ export class FnHome extends LitElement {
         </p>
         <button 
           class="btn-primary" 
-          @click=${() => navigate('profile')}
+          @click=${this.handleFinishSetup}
           style="background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: var(--radius, 8px); cursor: pointer;">
           Complete Setup
         </button>

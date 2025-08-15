@@ -7,13 +7,22 @@ let _resolvers = [];
  * Initialize session store - calls supabase.auth.getSession() and never throws
  */
 export async function init() {
-  try {
-    const { data } = await supabase.auth.getSession();
-    _session = data?.session ?? null;
-  } catch (error) {
-    console.warn('Session init failed:', error);
-    _session = null;
+  // first attempt
+  let { data: { session }, error } = await supabase.auth.getSession();
+
+  // handle skew: if we just returned from OAuth and session is null or future-dated, retry
+  const fromOAuth = /access_token=/.test(location.hash);
+  if ((!session || /issued in the future/i.test(error?.message || '')) && fromOAuth) {
+    await new Promise(r => setTimeout(r, 2500));
+    ({ data: { session } } = await supabase.auth.refreshSession());
   }
+
+  _session = session ?? null;   // never throw
+  notify();                     // notify state change
+}
+
+function notify() {
+  window.dispatchEvent(new CustomEvent('session-changed', { detail: _session }));
 }
 
 export async function getSession() {
@@ -44,6 +53,6 @@ export function wireAuthListener() {
       _resolvers.length = 0;
       rs.forEach(r => r(_session));
     }
-    window.dispatchEvent(new CustomEvent('session-changed', { detail: _session }));
+    notify();
   });
 }
