@@ -164,7 +164,7 @@ export class IslamicGuidanceCard extends LitElement {
         const { data: profile } = await supabase
           .from('profiles')
           .select('family_id')
-          .eq('id', user.user.id)
+          .eq('user_id', user.user.id)
           .single();
         
         familyId = profile?.family_id;

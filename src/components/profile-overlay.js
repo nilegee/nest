@@ -253,7 +253,7 @@ export class ProfileOverlay extends LitElement {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', this.userId)
+        .eq('user_id', this.userId)
         .single();
 
       if (profileError) throw profileError;
