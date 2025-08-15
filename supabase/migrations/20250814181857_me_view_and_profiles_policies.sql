@@ -1,6 +1,10 @@
 -- 20250814181857_me_view_and_profiles_policies.sql
 -- Bootstrap profiles + me view + safe RLS, idempotent after DROP SCHEMA public
 
+-- Safety net in case ordering ever changes
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 0) Safety: required enum/type (or fall back to text if enum absent)
 DO $$
 BEGIN
