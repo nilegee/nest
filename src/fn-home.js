@@ -371,6 +371,39 @@ export class FnHome extends LitElement {
       cursor: not-allowed;
       transform: none;
     }
+
+    .setup-card {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border: 1px solid #f59e0b;
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .setup-card .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .setup-card .card-header h3 {
+      margin: 0;
+      color: #92400e;
+      font-size: 1.1rem;
+    }
+
+    .setup-card .card-icon {
+      color: #d97706;
+      font-size: 1.25rem;
+    }
+
+    .setup-card .card-content p {
+      margin: 0 0 16px 0;
+      color: #78350f;
+      line-height: 1.5;
+    }
   `;
 
   constructor() {
@@ -405,6 +438,33 @@ export class FnHome extends LitElement {
    * Initialize router after component mounts
    */
   firstUpdated() {
+    // Wait for session to be established before initializing router
+    this.initializeRouterWhenReady();
+    
+    // Listen for route changes to update nav state
+    window.addEventListener('nest:route-changed', (e) => {
+      this.currentRoute = e.detail.route;
+    });
+  }
+
+  /**
+   * Initialize router when session is ready
+   */
+  async initializeRouterWhenReady() {
+    // Wait for session to be available
+    if (!this.session?.user) {
+      await new Promise(resolve => {
+        const checkSession = () => {
+          if (this.session?.user) {
+            resolve();
+          } else {
+            setTimeout(checkSession, 100);
+          }
+        };
+        checkSession();
+      });
+    }
+
     // Initialize router with the main outlet
     const outlet = this.shadowRoot.querySelector('#route-outlet');
     if (outlet) {
@@ -420,11 +480,6 @@ export class FnHome extends LitElement {
       registerRoute('profile', () => html`<profile-view></profile-view>`);
       registerRoute('insights', () => html`<insights-view></insights-view>`);
     }
-    
-    // Listen for route changes to update nav state
-    window.addEventListener('nest:route-changed', (e) => {
-      this.currentRoute = e.detail.route;
-    });
   }
 
   /**
@@ -617,6 +672,58 @@ export class FnHome extends LitElement {
   }
 
   /**
+   * Render setup card for users without family
+   */
+  renderSetupCard() {
+    return html`
+      <section class="setup-card">
+        <div class="card-header">
+          <iconify-icon icon="material-symbols:settings-outline" class="card-icon"></iconify-icon>
+          <h3>Complete Setup</h3>
+        </div>
+        <div class="card-content">
+          <p>Welcome! To get started with your family nest, you'll need to create or join a family.</p>
+          <button class="action-button" @click=${this.createFamily}>
+            Create Family
+          </button>
+        </div>
+      </section>
+    `;
+  }
+
+  /**
+   * Create a family for the user
+   */
+  async createFamily() {
+    try {
+      const familyName = prompt('Enter a name for your family:', 'My Family');
+      if (!familyName) return;
+
+      // Create family
+      const { data: family } = await db.insert('families', {
+        name: familyName.trim()
+      });
+
+      if (family) {
+        // Update user's profile with family_id
+        await db.update('profiles', 
+          { user_id: this.session.user.id },
+          { family_id: family.id }
+        );
+
+        // Update local state
+        this.userProfile = { ...this.userProfile, family_id: family.id };
+        sessionStore.setFamilyId(family.id);
+
+        showSuccess('Family created successfully!');
+      }
+    } catch (error) {
+      console.warn('Family creation failed:', error);
+      showError('Failed to create family');
+    }
+  }
+
+  /**
    * Render cards ensuring parity between mobile and desktop layouts
    * Uses the cards utility to maintain consistent card definitions
    * @param {boolean} includeQuickActions - Whether to include Quick Actions card
@@ -624,6 +731,7 @@ export class FnHome extends LitElement {
    */
   renderCards(includeQuickActions = false) {
     return html`
+      ${this.userProfile?.family_id ? '' : this.renderSetupCard()}
       <section aria-labelledby="events-heading">
         <fn-card-events></fn-card-events>
       </section>

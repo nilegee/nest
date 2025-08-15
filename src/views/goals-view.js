@@ -340,7 +340,7 @@ export class GoalsView extends LitElement {
       this.acts = data || [];
       
     } catch (error) {
-      console.error('Failed to load acts:', error);
+      console.warn('Acts loading failed:', { error: error.message, table: 'acts' });
       ui.toastError('Failed to load acts');
     }
   }
@@ -373,7 +373,7 @@ export class GoalsView extends LitElement {
       }
       
     } catch (error) {
-      console.error('Failed to load goal:', error);
+      console.warn('Goal loading failed:', { error: error.message, table: 'goals' });
     } finally {
       this.goalsLoading = false;
     }
@@ -406,7 +406,7 @@ export class GoalsView extends LitElement {
         e.target.querySelector('#act-points').value = '1'; // Reset to default
       }
     } catch (error) {
-      console.error('Act submission error:', error);
+      console.warn('Act submission failed:', { error: error.message, table: 'acts' });
       ui.toastError('Failed to log act. Please try again.');
     } finally {
       this.loading = false;

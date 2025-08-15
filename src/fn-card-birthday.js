@@ -196,7 +196,7 @@ export class FnCardBirthday extends LitElement {
    */
   addBirthday() {
     // TODO: Open birthday creation modal/form
-    console.log('Add new birthday');
+    // For now, this is a placeholder
   }
 
   render() {

@@ -207,7 +207,6 @@ export class FnLanding extends LitElement {
       this.error = '';
       
       const redirectUrl = getRedirectUrl();
-      console.log('OAuth redirect URL:', redirectUrl);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -241,7 +240,6 @@ export class FnLanding extends LitElement {
       this.error = '';
       
       const redirectUrl = getRedirectUrl();
-      console.log('Magic link redirect URL:', redirectUrl);
       
       const { error } = await supabase.auth.signInWithOtp({
         email: this.email.trim(),
