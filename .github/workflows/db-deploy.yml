@@ -1,0 +1,46 @@
+name: Deploy Database Migrations
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy
+        required: false
+        default: main
+concurrency:
+  group: db-deploy
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Guard main only
+        run: |
+          if [[ "${{ inputs.ref }}" != "main" ]]; then
+            echo "For safety, deploy only from main. Current: ${{ inputs.ref }}"
+            exit 1
+          fi
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DATABASE_URL:-}" ]]; then
+            echo "Missing DATABASE_URL secret."; exit 1
+          fi
+          # Apply repo migrations to remote DB
+          supabase db reset --db-url "$DATABASE_URL" --force --no-seed --use-mig-dir supabase/migrations
+          echo "✅ Migrations applied."

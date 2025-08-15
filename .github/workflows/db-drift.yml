@@ -1,0 +1,52 @@
+name: Drift (read-only)
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+permissions:
+  contents: read
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install Supabase CLI without curl|sh and force bash
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Show Supabase CLI version
+        run: supabase --version
+
+      - name: Skip if secrets unavailable (forks)
+        id: can-run
+        run: |
+          if [[ -z "${{ secrets.DATABASE_URL }}" ]]; then
+            echo "run=false" >> $GITHUB_OUTPUT
+          else
+            echo "run=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Detect drift (read-only)
+        if: steps.can-run.outputs.run == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          # Compute a readonly diff. Non-empty output means drift.
+          TMPDIR=$(mktemp -d)
+          supabase db diff --db-url "$DATABASE_URL" --schema public > "$TMPDIR/diff.sql" || true
+          if [[ -s "$TMPDIR/diff.sql" ]]; then
+            echo "❌ Drift detected between remote DB and repo migrations."
+            echo "-----"
+            head -n 200 "$TMPDIR/diff.sql"
+            echo "-----"
+            exit 1
+          else
+            echo "✅ No drift detected."
+          fi
