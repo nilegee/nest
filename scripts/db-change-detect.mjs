@@ -1,10 +1,6 @@
-// Robust DB-change detector for PRs (works for forks and shallow clones)
-//
-// Passes if: when DB-facing app files change, the PR also includes
-// at least one SQL file under supabase/migrations/.
-//
-// Inputs from workflow:
-//   - BASE_SHA: the PR base commit SHA (github.event.pull_request.base.sha)
+// Robust DB-change detector for PRs.
+// Pass: if DB-facing app files changed AND a migration exists under supabase/migrations/.
+// Inputs: BASE_SHA from the workflow (github.event.pull_request.base.sha)
 
 import { execSync } from "node:child_process";
 
@@ -18,21 +14,19 @@ if (!BASE_SHA) {
   process.exit(1);
 }
 
-// Ensure we have the base commit locally; fetch if needed (handles forks)
+// Ensure base commit exists locally (handles forks / shallow checkout)
 try {
   sh(`git cat-file -e ${BASE_SHA}^{commit}`);
 } catch {
-  // Fetch from the default origin; checkout sets remote for base repo
-  // This is safe even for forks with fetch-depth=0
   sh(`git fetch --no-tags --prune --depth=1 origin ${BASE_SHA}`);
 }
 
-// Diff base..HEAD (two dots = changes introduced by this PR)
+// Changed files introduced by this PR
 const diff = sh(`git diff --name-only ${BASE_SHA}..HEAD`)
   .split("\n")
   .filter(Boolean);
 
-// App/DB-touching paths
+// App files that *may* impact DB usage
 const touchesAppDb = diff.some((p) =>
   p.startsWith("src/") ||
   p.startsWith("web/") ||
@@ -40,7 +34,7 @@ const touchesAppDb = diff.some((p) =>
   p.startsWith("supabase/schema_inferred.sql")
 );
 
-// Migration present?
+// At least one migration present?
 const hasMigration = diff.some(
   (p) => p.startsWith("supabase/migrations/") && p.endsWith(".sql")
 );
