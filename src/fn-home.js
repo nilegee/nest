@@ -6,6 +6,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { ensureUserProfile } from './utils/profile-utils.js';
 
 // Import Phase 1 components
 import './views/events-view.js';
@@ -271,81 +272,22 @@ export class FnHome extends LitElement {
     if (!this.session?.user?.id) return;
     
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', this.session.user.id)
-        .single();
+      // Use utility to ensure profile exists
+      const profile = await ensureUserProfile(
+        this.session.user.id,
+        this.session.user.email,
+        this.session.user.user_metadata
+      );
       
-      if (error) {
-        console.log('Profile not found, creating new profile...');
-        // Auto-create profile for new users
-        await this.createUserProfile();
+      if (profile) {
+        this.userProfile = profile;
       } else {
-        this.userProfile = data;
+        console.log('Failed to create or load user profile');
+        this.userProfile = null;
       }
     } catch (error) {
       console.log('Error loading profile:', error);
       this.userProfile = null;
-    }
-  }
-
-  /**
-   * Create a new user profile with default family
-   */
-  async createUserProfile() {
-    if (!this.session?.user?.id || !this.session?.user?.email) return;
-    
-    try {
-      // First, ensure the default family exists
-      let familyId;
-      const { data: familyData, error: familyError } = await supabase
-        .from('families')
-        .select('id')
-        .eq('name', 'G Family')
-        .single();
-      
-      if (familyError || !familyData) {
-        // Create default family if it doesn't exist
-        const { data: newFamily, error: createFamilyError } = await supabase
-          .from('families')
-          .insert([{ name: 'G Family' }])
-          .select('id')
-          .single();
-        
-        if (createFamilyError) {
-          console.error('Error creating family:', createFamilyError);
-          return;
-        }
-        familyId = newFamily.id;
-      } else {
-        familyId = familyData.id;
-      }
-
-      // Create user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .insert([{
-          user_id: this.session.user.id,
-          family_id: familyId,
-          full_name: this.session.user.user_metadata?.full_name || 
-                     this.session.user.email?.split('@')[0] || 
-                     'Family Member',
-          role: 'member'
-        }])
-        .select('*')
-        .single();
-
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-        return;
-      }
-
-      console.log('Profile created successfully');
-      this.userProfile = profileData;
-      
-    } catch (error) {
-      console.error('Error in profile creation:', error);
     }
   }
 

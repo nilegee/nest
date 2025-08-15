@@ -7,6 +7,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../../web/supabaseClient.js';
+import { getUserFamilyId } from '../utils/profile-utils.js';
 
 export class IslamicGuidanceCard extends LitElement {
   static properties = {
@@ -161,13 +162,12 @@ export class IslamicGuidanceCard extends LitElement {
       let familyId = null;
 
       if (user?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('family_id')
-          .eq('user_id', user.user.id)
-          .single();
-        
-        familyId = profile?.family_id;
+        // Use utility to get family ID
+        familyId = await getUserFamilyId(
+          user.user.id,
+          user.user.email,
+          user.user.user_metadata
+        );
       }
 
       let guidanceData = null;

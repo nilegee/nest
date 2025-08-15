@@ -5,6 +5,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../../web/supabaseClient.js';
+import { getUserFamilyId } from '../utils/profile-utils.js';
 
 export class FeedView extends LitElement {
   static properties = {
@@ -293,14 +294,16 @@ export class FeedView extends LitElement {
 
     try {
       const { data: user } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('family_id')
-        .eq('user_id', user.user?.id)
-        .single();
+      
+      // Use utility to get family ID, ensuring profile exists
+      const familyId = await getUserFamilyId(
+        user.user?.id,
+        user.user?.email,
+        user.user?.user_metadata
+      );
 
-      if (!profile?.family_id) {
-        throw new Error('No family found');
+      if (!familyId) {
+        throw new Error('Unable to determine family. Please try again.');
       }
 
       const { error } = await supabase
@@ -308,7 +311,7 @@ export class FeedView extends LitElement {
         .insert([{
           content: this.newPost.content,
           media_url: this.newPost.media_url || null,
-          family_id: profile.family_id,
+          family_id: familyId,
           author_id: user.user.id
         }]);
 
