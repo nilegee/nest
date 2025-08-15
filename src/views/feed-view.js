@@ -296,7 +296,7 @@ export class FeedView extends LitElement {
       const { data: profile } = await supabase
         .from('profiles')
         .select('family_id')
-        .eq('id', user.user?.id)
+        .eq('user_id', user.user?.id)
         .single();
 
       if (!profile?.family_id) {

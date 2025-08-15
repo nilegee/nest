@@ -274,7 +274,7 @@ export class FnHome extends LitElement {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', this.session.user.id)
+        .eq('user_id', this.session.user.id)
         .single();
       
       if (error) {
