@@ -21,6 +21,7 @@ jobs:
         run: |
           if [[ -z "${{ secrets.DATABASE_URL }}" ]]; then
             echo "run=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping drift check: DATABASE_URL secret not available (fork-safe)"
           else
             echo "run=true" >> $GITHUB_OUTPUT
           fi

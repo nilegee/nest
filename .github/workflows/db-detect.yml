@@ -18,7 +18,7 @@ jobs:
       - name: Find changed migration files
         id: changes
         run: |
-          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}... | grep -E '^supabase/migrations/.+\\.sql$' || true)
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}... | grep -E '^supabase/migrations/.+\.sql$' || true)
           echo "changed<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

@@ -21,7 +21,7 @@ jobs:
       - name: Guard main branch
         run: |
           if [[ "${{ inputs.ref }}" != "main" ]]; then
-            echo "Deploy only from main branch."
+            echo "Error: Deploy only from main branch."
             exit 1
           fi
       - name: Apply migrations
@@ -29,7 +29,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           if [[ -z "${DATABASE_URL}" ]]; then
-            echo "Missing DATABASE_URL secret."
+            echo "Error: Missing DATABASE_URL secret."
             exit 1
           fi
           supabase db reset --db-url "$DATABASE_URL" --force --no-seed --use-mig-dir supabase/migrations
