@@ -1,0 +1,59 @@
+name: Detect DB changes
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find changed migration files
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}... | grep -E '^supabase/migrations/.+\\.sql$' || true)
+          echo "changed<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: ${{ steps.changes.outputs.changed != '' }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          recreate: true
+          header: db-detect
+          message: |
+            **Database migrations detected.**
+            Files changed:
+            ```
+            ${{ steps.changes.outputs.changed }}
+            ```
+            ✅ After review, add the PR label **db-migrations-ok** to proceed.
+
+      - name: Ensure label exists
+        if: ${{ steps.changes.outputs.changed != '' }}
+        uses: actions-ecosystem/action-create-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: |
+            - name: db-migrations-ok
+              color: 1f883d
+              description: OK to apply DB migrations
+
+      - name: Fail if label missing
+        if: ${{ steps.changes.outputs.changed != '' }}
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q '.labels[].name')
+          if ! grep -q '^db-migrations-ok$' <<<"$labels"; then
+            echo "Error: Add the label 'db-migrations-ok' to continue."
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

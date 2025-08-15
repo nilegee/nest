@@ -1,0 +1,42 @@
+name: Drift check
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Skip if no secrets
+        id: can-run
+        run: |
+          if [[ -z "${{ secrets.DATABASE_URL }}" ]]; then
+            echo "run=false" >> $GITHUB_OUTPUT
+          else
+            echo "run=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run drift check
+        if: steps.can-run.outputs.run == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -e
+          TMPDIR=$(mktemp -d)
+          supabase db diff --db-url "$DATABASE_URL" --schema public > "$TMPDIR/diff.sql" || true
+          if [[ -s "$TMPDIR/diff.sql" ]]; then
+            echo "❌ Drift detected:"
+            head -n 200 "$TMPDIR/diff.sql"
+            exit 1
+          else
+            echo "✅ No drift."
+          fi
