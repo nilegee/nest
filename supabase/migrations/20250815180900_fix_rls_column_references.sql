@@ -174,8 +174,8 @@ BEGIN
             EXECUTE format(
                 'CREATE POLICY "%I full_access_whitelist" ON public.%I ' ||
                 'FOR ALL ' ||
-                'USING (auth.jwt() ->> ''email'' IN (''yazidgeemail@gmail.com'',''yahyageemail@gmail.com'',''abdessamia.mariem@gmail.com'',''nilezat@gmail.com'')) ' ||
-                'WITH CHECK (auth.jwt() ->> ''email'' IN (''yazidgeemail@gmail.com'',''yahyageemail@gmail.com'',''abdessamia.mariem@gmail.com'',''nilezat@gmail.com''))',
+                'USING (auth.jwt() ->> ''email'' IN (''yazidgeemail@gmail.com'', ''yahyageemail@gmail.com'', ''abdessamia.mariem@gmail.com'', ''nilezat@gmail.com'')) ' ||
+                'WITH CHECK (auth.jwt() ->> ''email'' IN (''yazidgeemail@gmail.com'', ''yahyageemail@gmail.com'', ''abdessamia.mariem@gmail.com'', ''nilezat@gmail.com''))',
                 tbl, tbl
             );
         END IF;
