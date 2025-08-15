@@ -4,13 +4,30 @@ on:
     branches: [ main ]
     paths:
       - "supabase/migrations/**"
+  workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - uses: supabase/setup-cli@v1
+
+      - name: Clean prepared statements
+        run: psql "$DATABASE_URL" -c "DEALLOCATE ALL;"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: One-time full schema sync
+        if: github.event_name == 'workflow_dispatch'
+        run: supabase db push --db-url "$DATABASE_URL" --debug --force
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Deploy migrations to Supabase
-        run: supabase db push --db-url "$DATABASE_URL"
+        run: supabase db push --db-url "$DATABASE_URL" --debug
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
