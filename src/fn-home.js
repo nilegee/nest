@@ -19,13 +19,19 @@ import { ensureFamilyId } from './services/db.js';
 
 // Import views
 import './views/nest-view.js';
+import './views/plan-view.js';
+import './views/journal-view.js';
+import './views/profile-view.js';
+// Legacy views (kept for embedded use)
 import './views/feed-view.js';
 import './views/events-view.js';
 import './views/goals-view.js';
 import './views/chores-view.js';
 import './views/notes-view.js';
-import './views/profile-view.js';
 import './views/insights-view.js';
+
+// Import flags
+import { FLAGS } from '../flags.js';
 
 export class FnHome extends LitElement {
   static properties = {
@@ -411,15 +417,23 @@ export class FnHome extends LitElement {
     if (outlet) {
       initRouter(outlet);
       
-      // Register all routes with profile check
+      // Register main routes (new architecture)
       registerRoute('nest', () => this.userProfile ? html`<nest-view></nest-view>` : this.renderSetupCTA());
+      registerRoute('plan', () => this.userProfile ? html`<plan-view></plan-view>` : this.renderSetupCTA());
+      registerRoute('journal', () => this.userProfile ? html`<journal-view></journal-view>` : this.renderSetupCTA());
+      registerRoute('profile', () => html`<profile-view></profile-view>`); // Always allow profile access
+      
+      // Legacy routes (for embedded components and backward compatibility)
       registerRoute('feed', () => this.userProfile ? html`<feed-view></feed-view>` : this.renderSetupCTA());
       registerRoute('events', () => this.userProfile ? html`<events-view></events-view>` : this.renderSetupCTA());
       registerRoute('goals', () => this.userProfile ? html`<goals-view></goals-view>` : this.renderSetupCTA());
-      registerRoute('chores', () => this.userProfile ? html`<chores-view></chores-view>` : this.renderSetupCTA());
       registerRoute('notes', () => this.userProfile ? html`<notes-view></notes-view>` : this.renderSetupCTA());
-      registerRoute('profile', () => html`<profile-view></profile-view>`); // Always allow profile access
       registerRoute('insights', () => this.userProfile ? html`<insights-view></insights-view>` : this.renderSetupCTA());
+      
+      // Conditional routes based on flags
+      if (FLAGS.chores) {
+        registerRoute('chores', () => this.userProfile ? html`<chores-view></chores-view>` : this.renderSetupCTA());
+      }
     }
     
     // Listen for route changes to update nav state
@@ -705,43 +719,19 @@ export class FnHome extends LitElement {
               </a>
             </li>
             <li class="nav-item">
-              <a href="#feed" class="nav-link" 
-                 @click=${(e) => this.handleNavClick(e, 'feed')}
-                 aria-current=${this.currentRoute === 'feed' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:dynamic-feed"></iconify-icon>
-                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Feed</span>
+              <a href="#plan" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'plan')}
+                 aria-current=${this.currentRoute === 'plan' ? 'page' : null}>
+                <iconify-icon icon="material-symbols:calendar-month"></iconify-icon>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Plan</span>
               </a>
             </li>
             <li class="nav-item">
-              <a href="#chores" class="nav-link" 
-                 @click=${(e) => this.handleNavClick(e, 'chores')}
-                 aria-current=${this.currentRoute === 'chores' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:checklist"></iconify-icon>
-                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Chores</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#events" class="nav-link" 
-                 @click=${(e) => this.handleNavClick(e, 'events')}
-                 aria-current=${this.currentRoute === 'events' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:event"></iconify-icon>
-                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Events</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#goals" class="nav-link" 
-                 @click=${(e) => this.handleNavClick(e, 'goals')}
-                 aria-current=${this.currentRoute === 'goals' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:flag"></iconify-icon>
-                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Goals</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#notes" class="nav-link" 
-                 @click=${(e) => this.handleNavClick(e, 'notes')}
-                 aria-current=${this.currentRoute === 'notes' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:note"></iconify-icon>
-                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Notes</span>
+              <a href="#journal" class="nav-link" 
+                 @click=${(e) => this.handleNavClick(e, 'journal')}
+                 aria-current=${this.currentRoute === 'journal' ? 'page' : null}>
+                <iconify-icon icon="material-symbols:book"></iconify-icon>
+                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Journal</span>
               </a>
             </li>
             <li class="nav-item">
@@ -752,14 +742,16 @@ export class FnHome extends LitElement {
                 <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Profile</span>
               </a>
             </li>
-            <li class="nav-item">
-              <a href="#insights" class="nav-link" 
-                 @click=${(e) => this.handleNavClick(e, 'insights')}
-                 aria-current=${this.currentRoute === 'insights' ? 'page' : null}>
-                <iconify-icon icon="material-symbols:insights"></iconify-icon>
-                <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Insights</span>
-              </a>
-            </li>
+            ${FLAGS.chores ? html`
+              <li class="nav-item">
+                <a href="#chores" class="nav-link" 
+                   @click=${(e) => this.handleNavClick(e, 'chores')}
+                   aria-current=${this.currentRoute === 'chores' ? 'page' : null}>
+                  <iconify-icon icon="material-symbols:checklist"></iconify-icon>
+                  <span class="nav-text ${this.navExpanded ? 'expanded' : 'collapsed'}">Chores</span>
+                </a>
+              </li>
+            ` : ''}
             <li class="nav-item">
               <a href="#" class="nav-link" @click=${this.handleSignOut}>
                 <iconify-icon icon="material-symbols:logout"></iconify-icon>

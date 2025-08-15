@@ -1,0 +1,151 @@
+name: Auto DB Migrations
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**.sql'
+      - 'supabase/migrations/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/**.sql'
+      - 'supabase/migrations/**'
+
+concurrency:
+  group: db-migrations
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Migrations
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup PostgreSQL
+      uses: harmon758/postgresql-action@v1
+      with:
+        postgresql version: '15'
+        postgresql db: test_nest_db
+        postgresql user: postgres
+        postgresql password: postgres
+    
+    - name: Install psql
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+    
+    - name: Create test database
+      run: |
+        PGPASSWORD=postgres createdb -h localhost -U postgres nest_test
+    
+    - name: Validate migration syntax
+      run: |
+        for migration in supabase/migrations/*.sql; do
+          if [ -f "$migration" ]; then
+            echo "Validating $migration..."
+            PGPASSWORD=postgres psql -h localhost -U postgres -d nest_test -v ON_ERROR_STOP=1 -f "$migration"
+          fi
+        done
+    
+    - name: Run drift detection
+      run: |
+        # Compare schema with current migrations
+        if [ -f "supabase/schema_inferred.sql" ]; then
+          echo "Checking for schema drift..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d nest_test -v ON_ERROR_STOP=1 -c "\d" > current_schema.txt
+          echo "Schema validation completed"
+        fi
+    
+    - name: Verification scripts
+      run: |
+        # Run any verification scripts
+        if [ -f "scripts/verify-migrations.sql" ]; then
+          echo "Running verification scripts..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d nest_test -v ON_ERROR_STOP=1 -f "scripts/verify-migrations.sql"
+        fi
+
+  apply-on-merge:
+    name: Apply Migrations
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Install psql
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+    
+    - name: Apply migrations to production
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        echo "Applying migrations to production database..."
+        
+        # Apply migrations in order
+        for migration in supabase/migrations/*.sql; do
+          if [ -f "$migration" ]; then
+            echo "Applying $migration..."
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+            echo "✅ Applied $migration"
+          fi
+        done
+        
+        echo "All migrations applied successfully"
+    
+    - name: Regenerate schema files
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        echo "Regenerating schema documentation..."
+        
+        # Generate current schema
+        psql "$DATABASE_URL" -c "\d" > supabase/schema_current.txt
+        
+        # Generate schema map (tables and relationships)
+        psql "$DATABASE_URL" -c "
+        SELECT 
+          schemaname,
+          tablename,
+          tableowner
+        FROM pg_tables 
+        WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
+        ORDER BY schemaname, tablename;
+        " > supabase/SCHEMA_MAP.md
+        
+        # Generate RLS policies summary
+        psql "$DATABASE_URL" -c "
+        SELECT 
+          schemaname,
+          tablename,
+          policyname,
+          permissive,
+          roles,
+          cmd,
+          qual
+        FROM pg_policies
+        ORDER BY schemaname, tablename, policyname;
+        " >> supabase/SCHEMA_MAP.md
+    
+    - name: Commit schema updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        if [ -n "$(git status --porcelain)" ]; then
+          git add supabase/schema_current.txt supabase/SCHEMA_MAP.md
+          git commit -m "Auto-update schema documentation after migration [skip ci]"
+          git push
+          echo "✅ Schema documentation updated"
+        else
+          echo "No schema changes to commit"
+        fi

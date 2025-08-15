@@ -87,14 +87,65 @@ export class FnApp extends LitElement {
     this.session = null;
     this.loading = true;
     this.error = '';
+    this.sessionTimeoutId = null;
+    this.lastActivity = Date.now();
     
     this.initAuth();
     this.initProactiveBootstrap();
+    this.initSessionTimeout();
   }
 
   /**
-   * Optional proactive bootstrap (tolerate 404 gracefully)
+   * Initialize session timeout functionality
    */
+  initSessionTimeout() {
+    const TIMEOUT_DURATION = 30 * 60 * 1000; // 30 minutes
+    
+    // Track user activity
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    const resetTimeout = () => {
+      this.lastActivity = Date.now();
+      
+      if (this.sessionTimeoutId) {
+        clearTimeout(this.sessionTimeoutId);
+      }
+      
+      // Only set timeout if user is authenticated
+      if (this.session?.user) {
+        this.sessionTimeoutId = setTimeout(() => {
+          this.handleSessionTimeout();
+        }, TIMEOUT_DURATION);
+      }
+    };
+    
+    // Add event listeners for activity tracking
+    activityEvents.forEach(event => {
+      document.addEventListener(event, resetTimeout, true);
+    });
+    
+    // Initial timeout setup
+    resetTimeout();
+  }
+
+  /**
+   * Handle session timeout
+   */
+  async handleSessionTimeout() {
+    try {
+      log.info('Session timeout - signing out user');
+      
+      // Show timeout message
+      import('./toast-helper.js').then(({ showToast }) => {
+        showToast('Your session has expired for security. Please sign in again.', 'warning', 6000);
+      });
+      
+      // Sign out
+      await this.handleSignOut();
+    } catch (error) {
+      log.error('Error handling session timeout:', error);
+    }
+  }
   async initProactiveBootstrap() {
     try {
       const url = new URL('./proactive/bootstrap.js', import.meta.url).href;
@@ -218,6 +269,15 @@ export class FnApp extends LitElement {
     
     this.session = session;
     this.loading = false;
+    
+    // Reset session timeout for new session
+    if (session?.user && this.sessionTimeoutId) {
+      this.initSessionTimeout();
+    } else if (!session?.user && this.sessionTimeoutId) {
+      clearTimeout(this.sessionTimeoutId);
+      this.sessionTimeoutId = null;
+    }
+    
     this.requestUpdate();
   }
 
@@ -227,6 +287,13 @@ export class FnApp extends LitElement {
   async handleSignOut() {
     try {
       this.loading = true;
+      
+      // Clear session timeout
+      if (this.sessionTimeoutId) {
+        clearTimeout(this.sessionTimeoutId);
+        this.sessionTimeoutId = null;
+      }
+      
       await supabase.auth.signOut();
       
       // Clear any remaining session data
