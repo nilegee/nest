@@ -6,25 +6,29 @@ name: PR DB Change Watch
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   detect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - id: diff
         name: Find changed migration files
         run: |
+          set -euo pipefail
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.sha }}"
-          CHANGED="$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | \
-            awk '$2 ~ /^supabase\/migrations\//')"
-          echo "changed_list<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGED" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-          COUNT="$(echo "$CHANGED" | wc -l | tr -d ' ')"
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          CHANGED="$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | awk '$2 ~ /^supabase\/migrations\//')"
+          echo "changed_list<<EOF" >>"$GITHUB_OUTPUT"
+          echo "$CHANGED" >>"$GITHUB_OUTPUT"
+          echo "EOF" >>"$GITHUB_OUTPUT"
+          COUNT="$(printf "%s" "$CHANGED" | grep -c . || true)"
+          echo "count=$COUNT" >>"$GITHUB_OUTPUT"
 
       - name: Comment on PR (if DB changes)
         if: steps.diff.outputs.count != '0'
@@ -42,6 +46,25 @@ jobs:
             https://github.com/${{ github.repository }}/actions/workflows/deploy-migrations.yml
 
             When reviewed, add the label **`db-migrations-ok`** to this PR to clear the check.
+
+      - name: Ensure 'db-migrations-ok' label exists
+        if: steps.diff.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const name = 'db-migrations-ok';
+            try {
+              await github.rest.issues.getLabel({owner, repo, name});
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner, repo, name,
+                  color: '0E8A16',
+                  description: 'DB migrations reviewed for this PR'
+                });
+              } else { throw e; }
+            }
 
       - name: Fail if changes not acknowledged
         if: steps.diff.outputs.count != '0'
