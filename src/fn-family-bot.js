@@ -5,6 +5,7 @@
 
 import { supabase } from '../web/supabaseClient.js';
 import { showSuccess, showError } from './toast-helper.js';
+import { withFamily } from './services/db.js';
 
 // Message content for different themes and packs
 const MESSAGE_TEMPLATES = {
@@ -194,14 +195,13 @@ class FamilyBotAPI {
 
       const { error } = await supabase
         .from('nudges')
-        .insert({
-          family_id: profile.family_id,
+        .insert(await withFamily({
           target_user_id: userId,
           nudge_kind: nudgeKind,
           message,
           scheduled_for: scheduledFor.toISOString(),
           meta: { variables }
-        });
+        }, profile));
 
       if (error) throw error;
       return true;
@@ -318,12 +318,11 @@ class FamilyBotAPI {
 
       const { data, error } = await supabase
         .from('posts')
-        .insert({
-          family_id: profile.family_id,
+        .insert(await withFamily({
           author_id: authorId,
           body: content,
           visibility: 'family'
-        })
+        }, profile))
         .select()
         .single();
 

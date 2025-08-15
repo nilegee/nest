@@ -10,6 +10,7 @@ import { WHITELISTED_EMAILS } from '../web/env.js';
 import { bootWarn } from './lib/log.js';
 import { logger } from './utils/logger.js';
 import { initFamilyBotOnce } from './fn-family-bot.js';
+import { ensureFamilyId } from './services/db.js';
 
 const log = logger('fn-app');
 let authListenerAttached = false;

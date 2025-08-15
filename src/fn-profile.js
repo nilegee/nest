@@ -475,12 +475,11 @@ export class FnProfile extends LitElement {
     el.value = '';
     
     try {
-      const { data, error } = await db.insert('wishlist', {
+      const { data, error } = await db.insert('wishlist', await db.withFamily({
         user_id: this.session.user.id,
-        family_id: this.profile?.family_id,
         title: item,
         priority: 3
-      });
+      }, this.profile));
       
       if (error) throw error;
       

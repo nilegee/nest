@@ -8,6 +8,7 @@ import { supabase } from '../web/supabaseClient.js';
 import { waitForSession } from './lib/session-store.js';
 import { insertReturning, deleteById } from './lib/db-helpers.js';
 import { showSuccess, showError } from './toast-helper.js';
+import { withFamily } from './services/db.js';
 
 export class FnNotes extends LitElement {
   static properties = {
@@ -414,22 +415,21 @@ export class FnNotes extends LitElement {
         return;
       }
 
-      const noteData = {
-        family_id: profile.family_id,
+      const payload = await withFamily({
         author_id: this.session.user.id,
         body: this.noteContent.trim(),
         meta: { 
           template: this.selectedTemplate || 'free-form',
           updated_at: new Date().toISOString()
         }
-      };
+      }, profile);
 
       let result;
       if (this.editingNote) {
         // Update existing note
         const { data, error } = await supabase
           .from('notes')
-          .update(noteData)
+          .update(payload)
           .eq('id', this.editingNote.id)
           .select()
           .single();
@@ -444,7 +444,7 @@ export class FnNotes extends LitElement {
         }
       } else {
         // Create new note
-        result = await insertReturning('notes', noteData, supabase);
+        result = await insertReturning('notes', payload, supabase);
 
         // Add to local array
         this.notes = [result, ...this.notes];

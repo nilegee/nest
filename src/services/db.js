@@ -155,6 +155,27 @@ export async function rpc(functionName, params = {}) {
 }
 
 /**
+ * Ensure the current user has a family_id via RPC
+ * @returns {Promise<string>} - Family ID
+ */
+export async function ensureFamilyId() {
+  const { data, error } = await supabase.rpc('ensure_family_for_user');
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Add family_id to payload, ensuring it exists
+ * @param {Object} payload - Base payload object
+ * @param {Object} profile - User profile with family_id
+ * @returns {Promise<Object>} - Payload with family_id
+ */
+export async function withFamily(payload = {}, profile) {
+  const fam = profile?.family_id ?? await ensureFamilyId();
+  return { family_id: fam, ...payload };
+}
+
+/**
  * Get the authenticated user's profile from the me view with fallback to profiles
  * @param {Object} supabaseClient - Supabase client instance
  * @param {string} userId - User ID for fallback query
