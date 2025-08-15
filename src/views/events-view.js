@@ -7,7 +7,9 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import * as db from '../services/db.js';
 import * as ui from '../services/ui.js';
-import { insertReturning, deleteById } from '../lib/db-helpers.js';
+import { insertWithEvents, updateWithEvents, deleteWithEvents, selectWithEvents } from '../services/db-call.js';
+import { emit } from '../services/event-bus.js';
+import { checkRateLimit } from '../services/rate-limit.js';
 import { supabase } from '../../web/supabaseClient.js';
 import { waitForSession } from '../lib/session-store.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
@@ -352,6 +354,11 @@ export class EventsView extends LitElement {
       ui.toastError('Event date cannot be in the past.');
       return;
     }
+
+    // Check rate limiting
+    if (!checkRateLimit(this.session.user.id, 'event_create')) {
+      return;
+    }
     
     this.loading = true;
     
@@ -390,38 +397,52 @@ export class EventsView extends LitElement {
       throw new Error('No family context or user');
     }
     
-    const row = await insertReturning('events', {
+    const eventData = {
       family_id: familyId,
       owner_id: user.id,
       title: title.trim(),
       location,
       starts_at: startsAt
-    }, supabase);
+    };
 
-    // Update local state
-    this.events = [row, ...this.events];
-    this.requestUpdate();
+    const { data } = await insertWithEvents('events', eventData, {
+      successMessage: 'Event created successfully!',
+      emitEvent: 'EVENT_SCHEDULED',
+      emitPayload: {
+        userId: user.id,
+        familyId: familyId,
+        event: eventData
+      }
+    });
 
-    return row;
+    // Emit additional event for FamilyBot
+    await emit('EVENT_CREATED', {
+      userId: user.id,
+      familyId: familyId,
+      event: data
+    });
+
+    return data;
   }
 
   /**
    * Update an existing event
    */
   async updateEvent(eventId, title, startsAt, location = null) {
-    const { data, error } = await db.update(
-      'events',
-      { id: eventId },
-      {
-        title: title.trim(),
-        location,
-        starts_at: startsAt
-      }
-    );
+    const updateData = {
+      title: title.trim(),
+      location,
+      starts_at: startsAt
+    };
 
-    if (error) {
-      throw error;
-    }
+    const { data } = await updateWithEvents('events', { id: eventId }, updateData, {
+      successMessage: 'Event updated successfully!',
+      emitEvent: 'EVENT_UPDATED',
+      emitPayload: {
+        userId: this.session.user.id,
+        eventId: eventId
+      }
+    });
 
     return data?.[0];
   }

@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FamilyNest</title>
   
+  <!-- Security Headers -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://code.iconify.design https://api.iconify.design;
+    style-src 'self' 'unsafe-inline' https://esm.sh;
+    img-src 'self' data: https: blob:;
+    font-src 'self' https: data:;
+    connect-src 'self' https://supabase.com https://*.supabase.co https://api.iconify.design wss://*.supabase.co;
+    frame-src 'none';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+  ">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  
   <!-- CDN Dependencies with fallback -->
   <script type="module" src="https://esm.sh/lit@3"></script>
   <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>

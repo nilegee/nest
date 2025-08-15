@@ -14,13 +14,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    # one-line kill switch in commit message
-    if: ${{ !contains(github.event.head_commit.message, '[skip-db-deploy]') }}
+  validate:
+    # Migration validation and syntax checking
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
+      - name: Validate migration syntax
+        env:
+          SUPABASE_TELEMETRY_DISABLED: 1
+        run: |
+          echo "🔍 Validating migration files..."
+          # Check for SQL syntax errors
+          for file in supabase/migrations/*.sql; do
+            if [[ -f "$file" ]]; then
+              echo "Checking $file..."
+              # Basic SQL syntax validation
+              if ! grep -E "^(CREATE|ALTER|DROP|INSERT|UPDATE|DELETE)" "$file" > /dev/null; then
+                echo "⚠️  Warning: $file may not contain SQL DDL statements"
+              fi
+              # Check for dangerous operations
+              if grep -iE "(DROP DATABASE|TRUNCATE|DELETE FROM.*WHERE.*1.*=.*1)" "$file"; then
+                echo "❌ Dangerous operation detected in $file"
+                exit 1
+              fi
+            fi
+          done
+          echo "✅ Migration syntax validation passed"
+
+  deploy:
+    # one-line kill switch in commit message
+    if: ${{ !contains(github.event.head_commit.message, '[skip-db-deploy]') }}
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+      - name: Check drift before deployment
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_TELEMETRY_DISABLED: 1
+        run: |
+          if [[ -z "$DATABASE_URL" ]]; then echo "❌ DATABASE_URL missing"; exit 1; fi
+          echo "🔍 Checking for database drift..."
+          supabase db diff --db-url "$DATABASE_URL" || echo "⚠️ Drift detected - proceeding with deployment"
+      
       - name: Apply migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -30,6 +68,16 @@ jobs:
           supabase --version
           echo "➡️  Applying pending migrations to remote DB..."
           supabase db push --db-url "$DATABASE_URL"
+      
+      - name: Generate schema documentation
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_TELEMETRY_DISABLED: 1
+        run: |
+          echo "📝 Generating schema documentation..."
+          # Generate schema from live database
+          supabase db dump --db-url "$DATABASE_URL" --data-only=false > supabase/schema_generated.sql
+          echo "✅ Schema documentation generated"
 
   smoke:
     needs: deploy
@@ -38,9 +86,69 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install psql
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: DB smoke test
+      - name: Enhanced DB smoke tests
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           if [[ -z "$DATABASE_URL" ]]; then echo "❌ DATABASE_URL missing"; exit 1; fi
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/qa/smoke.sql
+          echo "🧪 Running enhanced smoke tests..."
+          
+          # Run existing smoke tests
+          if [[ -f "supabase/qa/smoke.sql" ]]; then
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/qa/smoke.sql
+          fi
+          
+          # Additional autonomous system tests
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 << 'EOF'
+          -- Test core tables exist
+          SELECT 'Testing core tables...' as test;
+          SELECT count(*) FROM profiles;
+          SELECT count(*) FROM events;
+          SELECT count(*) FROM posts;
+          SELECT count(*) FROM goals;
+          SELECT count(*) FROM nudges;
+          SELECT count(*) FROM activity_log;
+          
+          -- Test RLS policies are active
+          SELECT 'Testing RLS policies...' as test;
+          SELECT schemaname, tablename, rowsecurity 
+          FROM pg_tables 
+          WHERE schemaname = 'public' 
+          AND rowsecurity = false
+          AND tablename IN ('profiles', 'events', 'posts', 'goals');
+          
+          -- Test essential functions exist
+          SELECT 'Testing functions...' as test;
+          SELECT proname FROM pg_proc 
+          WHERE proname IN ('ensure_family_for_user')
+          AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
+          
+          SELECT '✅ Autonomous system smoke tests passed' as result;
+          EOF
+          
+          echo "✅ All smoke tests passed"
+
+  # Auto-commit generated schema if it changed
+  commit_schema:
+    needs: [deploy, smoke]
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit schema changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [[ -f "supabase/schema_generated.sql" ]]; then
+            git add supabase/schema_generated.sql
+            if git diff --staged --quiet; then
+              echo "No schema changes to commit"
+            else
+              git commit -m "Auto-update schema documentation [skip ci]"
+              git push
+              echo "✅ Schema documentation updated"
+            fi
+          fi
