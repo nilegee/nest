@@ -29,8 +29,10 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           if [[ -z "${DATABASE_URL}" ]]; then
-            echo "Error: Missing DATABASE_URL secret."
-            exit 1
+            echo "❌ DATABASE_URL secret is missing"; exit 1
           fi
-          supabase db reset --db-url "$DATABASE_URL" --force --no-seed --use-mig-dir supabase/migrations
-          echo "✅ Migrations applied."
+          echo "Supabase CLI version:"
+          supabase --version
+          echo "➡️  Applying new migrations to remote database..."
+          # SAFE: apply only pending migrations; no destructive reset
+          supabase db push --db-url "$DATABASE_URL"
