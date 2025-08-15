@@ -209,6 +209,43 @@ Ensure `.env.local` is configured and `node ./scripts/sync-env.mjs` has generate
 - **PRs**: A check named "PR DB Change Watch" fails if files under supabase/migrations change; add label `db-migrations-ok` after review.
 - **To initialize an empty DB**: Actions → "Bootstrap DB from Migrations (manual)" → Run.
 
+## Migration Rules – Family OS Project
+
+**1. One migration file per phase/feature**  
+Never create multiple migration files for the same phase.  
+Example:  
+- ✅ 20250815172758_baseline.sql  
+- ✅ 20250815180837_phase1.sql  
+- ❌ Separate migrations for events and posts if both belong to Phase 1.
+
+**2. Descriptive file naming**  
+
+YYYYMMDDHHMMSS_<phase-or-feature>.sql
+
+UTC timestamp + lowercase, underscores for spaces.  
+Example: `20250822_phase2_chores_goals.sql`
+
+**3. Always self-contained**  
+- CREATE TABLE IF NOT EXISTS before any ALTER TABLE.  
+- Use DO $$ blocks to ALTER only if table exists.  
+- RLS policies after table creation.
+
+**4. No temporary/probe migrations**  
+- Test locally, commit only real schema changes.
+
+**5. Keep migrations readable**  
+- Organize: header comment, table creation/alter, RLS, indexes, end comment.
+
+**6. Migration checklist**  
+- Name follows format  
+- One file per feature/phase  
+- Self-contained table creation + RLS  
+- No commented-out junk or test data
+
+**7. Auto-deploy**  
+- Only via deploy-migrations.yml  
+- Never apply schema changes manually in Supabase UI.
+
 ## QA Checklist
 
 **Login Success**:
