@@ -45,6 +45,32 @@ Build a private, psychology‑informed family hub that is fast, secure, and kind
 
 The same fragment is used both in desktop sidebar and mobile inline.
 
+## Phase 1 Agents
+
+### EventAgent
+- **Location**: `src/views/events-view.js`
+- **Responsibility**: Manage family events (birthdays, anniversaries, custom)
+- **Database**: `events` table with RLS policies
+- **Features**: CRUD operations, date formatting, event type icons
+
+### FeedAgent  
+- **Location**: `src/views/feed-view.js`
+- **Responsibility**: Family post sharing and communication
+- **Database**: `posts` table with author relationships
+- **Features**: Post composer, media URLs, reverse chronological display
+
+### ProfileAgent
+- **Location**: `src/components/profile-overlay.js`
+- **Responsibility**: Member profile display with stats
+- **Database**: `profiles` and `posts` tables
+- **Features**: Profile info, recent posts, kindness metrics, appreciations placeholder
+
+### IslamicGuidanceAgent
+- **Location**: `src/cards/islamic-guidance-card.js` (removable)
+- **Responsibility**: Daily Islamic guidance and wisdom
+- **Database**: `islamic_guidance` table with fallback content
+- **Features**: Qur'an verses, hadith, advice with beautiful styling
+
 ## Styling
 - Scope styles per component (shadow DOM or BEM). No global resets.
 - Respect `prefers-reduced-motion`. Provide high-contrast tokens.
