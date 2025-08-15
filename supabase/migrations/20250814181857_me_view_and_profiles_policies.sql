@@ -144,7 +144,8 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 SECURITY DEFINER
 SET search_path = public
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+AS $$
 BEGIN
   INSERT INTO public.profiles (user_id, email, full_name, avatar_url, family_id, role)
   VALUES (
@@ -153,14 +154,14 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name',''),
     COALESCE(NEW.raw_user_meta_data->>'avatar_url',''),
     (SELECT id FROM public.families WHERE name='G Family' LIMIT 1),
-    'member'::public.member_role
+    'member'
   )
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;
 $$;
 
--- 4a) Trigger creation (idempotent, modern syntax)
+-- 4a) Trigger creation (modern syntax)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='on_auth_user_created') THEN
