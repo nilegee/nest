@@ -49,31 +49,27 @@ CREATE POLICY "signals family insert" ON public.signals
   );
 
 -- ---------- NUDGES ----------
-DO $$
-BEGIN
-  CREATE TYPE public.nudge_status AS ENUM('pending','shown','accepted','dismissed');
-EXCEPTION WHEN duplicate_object THEN
-  NULL;
-END$$;
-
-CREATE TABLE IF NOT EXISTS public.nudges(
-  id         BIGSERIAL PRIMARY KEY,
-  family_id  uuid NOT NULL
-             REFERENCES public.families(id) ON DELETE CASCADE,
-  target_id  uuid
-             REFERENCES public.profiles(user_id) ON DELETE SET NULL,
-  type       text NOT NULL,
-  payload    jsonb DEFAULT '{}'::jsonb,
-  status     public.nudge_status NOT NULL DEFAULT 'pending',
+-- Use the FamilyBot-compatible schema
+CREATE TABLE IF NOT EXISTS public.nudges (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id uuid NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
+  target_user_id uuid NOT NULL REFERENCES public.profiles(user_id) ON DELETE CASCADE,
+  nudge_kind text NOT NULL,
+  message text NOT NULL,
+  scheduled_for timestamptz NOT NULL,
+  sent_at timestamptz,
+  responded_at timestamptz,
+  response_data jsonb,
+  meta jsonb DEFAULT '{}',
   created_at timestamptz DEFAULT now()
 );
 
 ALTER TABLE public.nudges ENABLE ROW LEVEL SECURITY;
 
--- Indexes
+-- Indexes for performance
 CREATE INDEX IF NOT EXISTS nudges_family_idx ON public.nudges(family_id);
-CREATE INDEX IF NOT EXISTS nudges_target_idx ON public.nudges(target_id);
-CREATE INDEX IF NOT EXISTS nudges_status_idx ON public.nudges(status);
+CREATE INDEX IF NOT EXISTS nudges_target_idx ON public.nudges(target_user_id);
+CREATE INDEX IF NOT EXISTS nudges_scheduled_idx ON public.nudges(scheduled_for) WHERE sent_at IS NULL;
 
 -- RLS: family members can read/insert/update nudges for their family
 DROP POLICY IF EXISTS "nudges family read"   ON public.nudges;
@@ -105,18 +101,5 @@ CREATE POLICY "nudges family write" ON public.nudges
 CREATE POLICY "nudges family update" ON public.nudges
   FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1
-      FROM public.profiles p
-      WHERE p.user_id = auth.uid()
-        AND p.family_id = nudges.family_id
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM public.profiles p
-      WHERE p.user_id = auth.uid()
-        AND p.family_id = nudges.family_id
-    )
+    target_user_id = auth.uid()
   );
