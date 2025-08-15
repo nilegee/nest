@@ -195,10 +195,22 @@ do $$ begin
   end if;
 end $$;
 
--- /rest/v1/me view
-create or replace view public.me as
-select p.user_id, p.full_name, p.family_id, p.dob, p.avatar_url
-from public.profiles p where p.user_id = auth.uid();
+-- /rest/v1/me view (idempotent)
+-- Drop the old shape if present (safe to run repeatedly)
+drop view if exists public.me;
+
+-- Recreate with the canonical columns used by the app
+create view public.me as
+select
+  p.user_id,
+  p.full_name,
+  p.family_id,
+  p.dob,
+  p.avatar_url
+from public.profiles p
+where p.user_id = auth.uid();
+
+-- Re-grant after recreate
 grant select on public.me to anon, authenticated;
 
 -- Ensure profile row for new auth users
