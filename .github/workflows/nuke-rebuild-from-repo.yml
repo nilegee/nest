@@ -26,6 +26,8 @@ jobs:
     env:
       RAW_DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RAW_DATABASE_URL_POOLER: ${{ secrets.DATABASE_URL_POOLER }}
+      FAMILY_NAME: G Family
+      WHITELISTED_EMAILS: "yazidgeemail@gmail.com,yahyageemail@gmail.com,abdessamia.mariem@gmail.com,nilezat@gmail.com"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,79 +130,16 @@ jobs:
 
       - name: Seed minimal data (Family + Email Whitelist)
         env:
-          DB: ${{ env.SANITIZED_URL }}
+          DATABASE_URL: ${{ env.SANITIZED_URL }}
           FAMILY_NAME: ${{ github.event.inputs.family_name }}
-          ADMIN_EMAILS: ${{ github.event.inputs.admin_emails }}
-          MEMBER_EMAILS: ${{ github.event.inputs.member_emails }}
+          WHITELISTED_EMAILS: "${{ github.event.inputs.admin_emails }},${{ github.event.inputs.member_emails }}"
         run: |
           set -euo pipefail
-          # If a dedicated seed exists, run that instead.
-          if [ -f supabase/seed.sql ]; then
-            echo "Running supabase/seed.sql"
-            /usr/lib/postgresql/17/bin/psql "$DB" -v ON_ERROR_STOP=1 -f supabase/seed.sql
-            exit 0
-          fi
-
-          echo "Running minimal seed (family + whitelist)"
-          /usr/lib/postgresql/17/bin/psql "$DB" -v ON_ERROR_STOP=1 <<'SQL'
-          -- Minimal, profile-safe seed.
-          -- Does NOT touch auth.users or profiles (created on first login).
-
-          -- Ensure families table exists (if migrations didn't already create it)
-          DO $$
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM information_schema.tables
-                           WHERE table_schema='public' AND table_name='families') THEN
-              CREATE TABLE public.families (
-                id uuid primary key default gen_random_uuid(),
-                name text unique not null
-              );
-            END IF;
-          END $$;
-
-          -- Use a simple text role with a CHECK to avoid enum mismatch during early testing
-          DO $$
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM information_schema.tables
-                           WHERE table_schema='public' AND table_name='email_whitelist') THEN
-              CREATE TABLE public.email_whitelist (
-                email citext primary key,
-                role  text not null check (role in ('admin','member'))
-              );
-            END IF;
-          END $$;
-
-          -- Upsert Family
-          INSERT INTO public.families(name) VALUES (:FAMILY_NAME)
-          ON CONFLICT (name) DO NOTHING;
-
-          -- Upsert whitelisted emails
-          WITH
-          admins AS (
-            SELECT trim(value) AS email
-            FROM regexp_split_to_table(:ADMIN_EMAILS, ',') AS value
-            WHERE trim(value) <> ''
-          ),
-          members AS (
-            SELECT trim(value) AS email
-            FROM regexp_split_to_table(:MEMBER_EMAILS, ',') AS value
-            WHERE trim(value) <> ''
-          )
-          INSERT INTO public.email_whitelist(email, role)
-          SELECT email, 'admin' FROM admins
-          UNION ALL
-          SELECT email, 'member' FROM members
-          ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role;
-
-          -- Optional helper view for quick checks (safe if it already exists)
-          DO $$
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_views WHERE schemaname='public' AND viewname='whitelisted_admins') THEN
-              EXECUTE $$CREATE VIEW public.whitelisted_admins AS
-                       SELECT email FROM public.email_whitelist WHERE role='admin'$$;
-            END IF;
-          END $$;
-          SQL
+          echo "Running scripts/seed_minimal.sql"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -v FAMILY_NAME="${FAMILY_NAME}" \
+            -v WHITELISTED_EMAILS="${WHITELISTED_EMAILS}" \
+            -f scripts/seed_minimal.sql
 
       - name: Post-run summary
         env:
