@@ -1,11 +1,13 @@
 /**
- * FamilyBot - Proactive family engagement system
- * Handles scheduling, message generation, and family interactions
+ * FamilyBot - Autonomous family engagement system
+ * Event-driven bot with intelligent nudging and rate limiting
  */
 
 import { supabase } from '../web/supabaseClient.js';
 import { showSuccess, showError } from './toast-helper.js';
 import { withFamily } from './services/db.js';
+import { on, emit } from './services/event-bus.js';
+import { checkRateLimit } from './services/rate-limit.js';
 
 // Message content for different themes and packs
 const MESSAGE_TEMPLATES = {
@@ -67,6 +69,521 @@ class FamilyBotAPI {
   constructor() {
     this.preferencesCache = new Map();
     this.schedulerInterval = null;
+    this.nudgeThrottleMap = new Map(); // For intelligent throttling
+    this.eventListeners = new Map();
+    this.initialized = false;
+  }
+
+  /**
+   * Initialize autonomous FamilyBot with event listeners
+   */
+  init() {
+    if (this.initialized) return;
+
+    // Set up event listeners for autonomous operation
+    this.setupEventListeners();
+    this.startNudgeScheduler();
+    this.initialized = true;
+  }
+
+  /**
+   * Setup event listeners for autonomous responses
+   */
+  setupEventListeners() {
+    // Post-related events
+    const postCreatedHandler = on('POST_CREATED', (event) => {
+      this.handlePostCreated(event);
+    });
+    this.eventListeners.set('POST_CREATED', postCreatedHandler);
+
+    // Goal-related events
+    const goalProgressHandler = on('GOAL_PROGRESS', (event) => {
+      this.handleGoalProgress(event);
+    });
+    this.eventListeners.set('GOAL_PROGRESS', goalProgressHandler);
+
+    // Event-related events
+    const eventScheduledHandler = on('EVENT_SCHEDULED', (event) => {
+      this.handleEventScheduled(event);
+    });
+    this.eventListeners.set('EVENT_SCHEDULED', eventScheduledHandler);
+
+    // Activity-related events
+    const appreciationHandler = on('APPRECIATION_SENT', (event) => {
+      this.handleAppreciationSent(event);
+    });
+    this.eventListeners.set('APPRECIATION_SENT', appreciationHandler);
+
+    // User engagement events
+    const loginHandler = on('USER_LOGIN', (event) => {
+      this.handleUserLogin(event);
+    });
+    this.eventListeners.set('USER_LOGIN', loginHandler);
+  }
+
+  /**
+   * Handle post creation - respond with appreciation or engagement
+   */
+  async handlePostCreated(event) {
+    const { userId, familyId, post } = event;
+    
+    // Check throttling - max 1 response per user per day for posts
+    if (!this.shouldRespondToEvent(userId, 'post_response')) {
+      return;
+    }
+
+    // Rate limiting check
+    if (!checkRateLimit('familybot', 'nudge_create')) {
+      return;
+    }
+
+    // Schedule appreciation prompt for other family members
+    try {
+      const { data: familyMembers } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('family_id', familyId)
+        .neq('user_id', userId);
+
+      for (const member of familyMembers || []) {
+        const prefs = await this.getMemberPrefs(member.user_id);
+        
+        if (this.isInQuietHours(prefs)) continue;
+
+        // Schedule appreciation prompt in 2-4 hours
+        const scheduleTime = new Date(Date.now() + (2 + Math.random() * 2) * 60 * 60 * 1000);
+        
+        await this.scheduleNudge(
+          member.user_id,
+          'appreciation_prompt',
+          scheduleTime,
+          { 
+            authorName: await this.getUserName(userId),
+            postPreview: post.body?.slice(0, 50) + '...'
+          }
+        );
+      }
+
+      this.recordEventResponse(userId, 'post_response');
+    } catch (error) {
+      console.warn('FamilyBot post response failed:', error);
+    }
+  }
+
+  /**
+   * Handle goal progress - celebrate milestones
+   */
+  async handleGoalProgress(event) {
+    const { userId, familyId, goal, progress } = event;
+    
+    // Celebrate significant milestones
+    const milestones = [25, 50, 75, 100];
+    const milestone = milestones.find(m => 
+      progress >= m && (goal.previous_progress || 0) < m
+    );
+
+    if (!milestone) return;
+
+    if (!this.shouldRespondToEvent(userId, 'milestone_celebration')) {
+      return;
+    }
+
+    if (!checkRateLimit('familybot', 'nudge_create')) {
+      return;
+    }
+
+    try {
+      const prefs = await this.getMemberPrefs(userId);
+      
+      if (this.isInQuietHours(prefs)) {
+        // Schedule for later if in quiet hours
+        const wakeTime = this.getWakeTime(prefs);
+        await this.scheduleNudge(
+          userId,
+          'milestone_celebration',
+          wakeTime,
+          { goalTitle: goal.title, progress: milestone }
+        );
+      } else {
+        // Send immediately
+        await this.sendMilestoneCelebration(userId, goal, milestone);
+      }
+
+      this.recordEventResponse(userId, 'milestone_celebration');
+    } catch (error) {
+      console.warn('FamilyBot milestone celebration failed:', error);
+    }
+  }
+
+  /**
+   * Handle event scheduled - set reminders
+   */
+  async handleEventScheduled(event) {
+    const { userId, familyId, event: scheduledEvent } = event;
+    
+    if (!scheduledEvent?.starts_at) return;
+
+    try {
+      const eventDate = new Date(scheduledEvent.starts_at);
+      const now = new Date();
+      
+      // Schedule reminder 24 hours before event
+      const reminderTime = new Date(eventDate.getTime() - 24 * 60 * 60 * 1000);
+      
+      if (reminderTime > now) {
+        // Get all family members for reminder
+        const { data: familyMembers } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('family_id', familyId);
+
+        for (const member of familyMembers || []) {
+          await this.scheduleNudge(
+            member.user_id,
+            'event_reminder',
+            reminderTime,
+            { 
+              eventTitle: scheduledEvent.title,
+              eventTime: this.formatEventTime(eventDate),
+              location: scheduledEvent.location
+            }
+          );
+        }
+      }
+    } catch (error) {
+      console.warn('FamilyBot event reminder scheduling failed:', error);
+    }
+  }
+
+  /**
+   * Handle appreciation sent - encourage more gratitude
+   */
+  async handleAppreciationSent(event) {
+    const { userId, familyId } = event;
+    
+    // Randomly encourage more gratitude (20% chance)
+    if (Math.random() > 0.2) return;
+
+    if (!this.shouldRespondToEvent(userId, 'gratitude_encouragement')) {
+      return;
+    }
+
+    try {
+      const prefs = await this.getMemberPrefs(userId);
+      
+      // Schedule gratitude encouragement in 1-3 days
+      const scheduleTime = new Date(Date.now() + (1 + Math.random() * 2) * 24 * 60 * 60 * 1000);
+      
+      await this.scheduleNudge(
+        userId,
+        'gratitude_chain',
+        scheduleTime,
+        { streak: await this.getGratitudeStreak(userId) }
+      );
+
+      this.recordEventResponse(userId, 'gratitude_encouragement');
+    } catch (error) {
+      console.warn('FamilyBot gratitude encouragement failed:', error);
+    }
+  }
+
+  /**
+   * Handle user login - welcome back or daily check-in
+   */
+  async handleUserLogin(event) {
+    const { userId, familyId } = event;
+    
+    // Check if this is the first login today
+    const lastLogin = await this.getLastLoginDate(userId);
+    const today = new Date().toDateString();
+    
+    if (lastLogin === today) return; // Already welcomed today
+
+    if (!this.shouldRespondToEvent(userId, 'daily_checkin')) {
+      return;
+    }
+
+    try {
+      const prefs = await this.getMemberPrefs(userId);
+      
+      // Schedule daily check-in in 5-15 minutes
+      const scheduleTime = new Date(Date.now() + (5 + Math.random() * 10) * 60 * 1000);
+      
+      await this.scheduleNudge(
+        userId,
+        'daily_checkin',
+        scheduleTime,
+        { 
+          userName: await this.getUserName(userId),
+          dayOfWeek: new Date().toLocaleDateString('en-US', { weekday: 'long' })
+        }
+      );
+
+      this.recordEventResponse(userId, 'daily_checkin');
+    } catch (error) {
+      console.warn('FamilyBot daily check-in failed:', error);
+    }
+  }
+
+  /**
+   * Check if bot should respond to event (intelligent throttling)
+   */
+  shouldRespondToEvent(userId, eventType) {
+    const key = `${userId}:${eventType}`;
+    const now = Date.now();
+    const lastResponse = this.nudgeThrottleMap.get(key) || 0;
+    
+    // Different throttling periods for different event types
+    const throttlePeriods = {
+      'post_response': 24 * 60 * 60 * 1000, // 24 hours
+      'milestone_celebration': 12 * 60 * 60 * 1000, // 12 hours
+      'gratitude_encouragement': 3 * 24 * 60 * 60 * 1000, // 3 days
+      'daily_checkin': 24 * 60 * 60 * 1000, // 24 hours
+      'default': 6 * 60 * 60 * 1000 // 6 hours
+    };
+    
+    const throttlePeriod = throttlePeriods[eventType] || throttlePeriods.default;
+    
+    return (now - lastResponse) > throttlePeriod;
+  }
+
+  /**
+   * Record that bot responded to an event
+   */
+  recordEventResponse(userId, eventType) {
+    const key = `${userId}:${eventType}`;
+    this.nudgeThrottleMap.set(key, Date.now());
+  }
+
+  /**
+   * Check if user is in quiet hours
+   */
+  isInQuietHours(prefs) {
+    const now = new Date();
+    const currentTime = now.getHours() * 100 + now.getMinutes();
+    const quietStart = this.parseTime(prefs.quiet_hours_start || '22:00');
+    const quietEnd = this.parseTime(prefs.quiet_hours_end || '08:00');
+    
+    if (quietStart > quietEnd) {
+      // Quiet hours span midnight
+      return currentTime >= quietStart || currentTime <= quietEnd;
+    } else {
+      return currentTime >= quietStart && currentTime <= quietEnd;
+    }
+  }
+
+  /**
+   * Get wake time based on quiet hours
+   */
+  getWakeTime(prefs) {
+    const now = new Date();
+    const quietEnd = this.parseTime(prefs.quiet_hours_end || '08:00');
+    const wakeTime = new Date(now);
+    
+    wakeTime.setHours(Math.floor(quietEnd / 100));
+    wakeTime.setMinutes(quietEnd % 100);
+    wakeTime.setSeconds(0);
+    
+    // If wake time is in the past, schedule for tomorrow
+    if (wakeTime <= now) {
+      wakeTime.setDate(wakeTime.getDate() + 1);
+    }
+    
+    return wakeTime;
+  }
+
+  /**
+   * Parse time string to minutes
+   */
+  parseTime(timeString) {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 100 + minutes;
+  }
+
+  /**
+   * Start autonomous nudge scheduler
+   */
+  startNudgeScheduler() {
+    if (this.schedulerInterval) return;
+    
+    // Check for and send nudges every 5 minutes
+    this.schedulerInterval = setInterval(() => {
+      this.processScheduledNudges();
+    }, 5 * 60 * 1000);
+  }
+
+  /**
+   * Process scheduled nudges that are due
+   */
+  async processScheduledNudges() {
+    try {
+      const { data: dueNudges } = await supabase
+        .from('nudges')
+        .select('*')
+        .eq('status', 'pending')
+        .lt('scheduled_for', new Date().toISOString())
+        .limit(10);
+
+      for (const nudge of dueNudges || []) {
+        await this.sendScheduledNudge(nudge);
+      }
+    } catch (error) {
+      console.warn('FamilyBot nudge processing failed:', error);
+    }
+  }
+
+  /**
+   * Send a scheduled nudge
+   */
+  async sendScheduledNudge(nudge) {
+    try {
+      // Mark as processing
+      await supabase
+        .from('nudges')
+        .update({ status: 'processing' })
+        .eq('id', nudge.id);
+
+      // Send the nudge
+      await this.sendNudgeToUser(nudge.target_user_id, nudge.message, nudge.meta);
+
+      // Mark as sent
+      await supabase
+        .from('nudges')
+        .update({ 
+          status: 'sent',
+          sent_at: new Date().toISOString()
+        })
+        .eq('id', nudge.id);
+
+      // Emit event for tracking
+      await emit('NUDGE_SENT', {
+        userId: nudge.target_user_id,
+        nudgeType: nudge.nudge_kind,
+        nudgeId: nudge.id
+      });
+    } catch (error) {
+      console.warn('Failed to send scheduled nudge:', error);
+      
+      // Mark as failed
+      await supabase
+        .from('nudges')
+        .update({ status: 'failed' })
+        .eq('id', nudge.id);
+    }
+  }
+
+  /**
+   * Helper methods for autonomous operation
+   */
+  async getUserName(userId) {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', userId)
+        .single();
+      return data?.full_name || 'Family member';
+    } catch {
+      return 'Family member';
+    }
+  }
+
+  async getGratitudeStreak(userId) {
+    try {
+      const { data } = await supabase
+        .from('appreciations')
+        .select('created_at')
+        .eq('from_user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(7);
+      
+      // Count consecutive days
+      let streak = 0;
+      const today = new Date();
+      
+      for (const appreciation of data || []) {
+        const appreciationDate = new Date(appreciation.created_at);
+        const daysDiff = Math.floor((today - appreciationDate) / (24 * 60 * 60 * 1000));
+        
+        if (daysDiff === streak) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+      
+      return streak;
+    } catch {
+      return 0;
+    }
+  }
+
+  async getLastLoginDate(userId) {
+    try {
+      const { data } = await supabase
+        .from('activity_log')
+        .select('created_at')
+        .eq('user_id', userId)
+        .eq('activity_type', 'user_login')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      return data?.[0]?.created_at ? new Date(data[0].created_at).toDateString() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  formatEventTime(date) {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
+
+  /**
+   * Send milestone celebration immediately
+   */
+  async sendMilestoneCelebration(userId, goal, milestone) {
+    const message = milestone === 100 
+      ? `🎉 Incredible! You completed "${goal.title}"! The whole family is proud of you!`
+      : `⭐ Amazing progress! You're ${milestone}% done with "${goal.title}". Keep going!`;
+    
+    await this.sendNudgeToUser(userId, message, { goalId: goal.id, milestone });
+  }
+
+  /**
+   * Send nudge to user (via toast or feed post)
+   */
+  async sendNudgeToUser(userId, message, meta = {}) {
+    // For now, we'll emit an event that components can listen to
+    await emit('FAMILYBOT_NUDGE', {
+      userId,
+      message,
+      meta,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Cleanup autonomous systems
+   */
+  destroy() {
+    if (this.schedulerInterval) {
+      clearInterval(this.schedulerInterval);
+      this.schedulerInterval = null;
+    }
+    
+    // Unsubscribe from events
+    for (const unsubscribe of this.eventListeners.values()) {
+      unsubscribe();
+    }
+    this.eventListeners.clear();
+    
+    this.initialized = false;
   }
 
   /**
@@ -467,12 +984,17 @@ export function initFamilyBotOnce() {
     const log = logger('family-bot');
     log.info('scheduler initialized');
     FamilyBot.initScheduler();
+    FamilyBot.init(); // Initialize autonomous systems
   }).catch(() => {
     // Fallback if logger fails to load
     console.log('[family-bot] scheduler initialized');
     FamilyBot.initScheduler();
+    FamilyBot.init(); // Initialize autonomous systems
   });
 }
+
+// Auto-initialize autonomous FamilyBot when module loads
+FamilyBot.init();
 
 // Also make available globally for legacy compatibility
 window.FamilyBot = FamilyBot;
