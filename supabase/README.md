@@ -103,6 +103,20 @@ ALTER TABLE posts DROP COLUMN IF EXISTS legacy_field;
 After each deployment, the pipeline automatically runs:
 - `scripts/verify-schema.sql` - Validates table structure
 - `scripts/verify-rls.sql` - Validates Row Level Security policies
+- `scripts/verify-extensions.sql` - Validates required extensions
+
+## Extensions
+
+We use citext for case‑insensitive emails and pgcrypto for UUIDs. Enabling is handled by *_enable_extensions.sql and verified in CI.
+
+Required extensions:
+- **citext** - Case-insensitive text matching (used for email fields)
+- **pgcrypto** - Cryptographic functions (provides `gen_random_uuid()`)
+
+Extension management is automatic:
+- Migration `*_enable_extensions.sql` ensures extensions are available first
+- All migrations that use these features include safety nets
+- CI verifies extensions are properly enabled after deployment
 
 ## Guardrails & Best Practices
 

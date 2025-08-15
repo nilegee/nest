@@ -119,6 +119,13 @@ jobs:
           fi
           echo "Migrations applied."
 
+      - name: Verify extensions
+        env:
+          DB: ${{ env.SANITIZED_URL }}
+        run: |
+          set -euo pipefail
+          /usr/lib/postgresql/17/bin/psql "$DB" -v ON_ERROR_STOP=1 -f scripts/verify-extensions.sql
+
       - name: Seed minimal data (Family + Email Whitelist)
         env:
           DB: ${{ env.SANITIZED_URL }}

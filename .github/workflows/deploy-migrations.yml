@@ -42,3 +42,9 @@ jobs:
           done
           echo "Automation Verified ✅ — migrations applied via Session Pooler"
 
+      - name: Verify extensions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-extensions.sql
+
