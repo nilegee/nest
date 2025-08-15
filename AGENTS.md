@@ -92,16 +92,17 @@ The same fragment is used both in desktop sidebar and mobile inline.
 ## MigrationAgent – Database Schema Standards
 
 MigrationAgent ensures all future Supabase migrations follow these rules:  
-- **One file per feature/phase**  
-- **Descriptive filename** in the format `YYYYMMDDHHMMSS_<phase-or-feature>.sql`  
+- **SINGLE MIGRATION FILE POLICY**: At any time, there must be exactly ONE migration file in `supabase/migrations/`
+- **ALL CHANGES IN ONE FILE**: All schema changes must be appended to the single migration file, never split across multiple files
+- **DELETE OLD MIGRATIONS**: Any previous migration files must be deleted before adding a new schema change
 - **Self-contained**: create tables if not exist before altering  
 - **RLS first-class**: every family-scoped table has RLS enabled and policies applied immediately  
 - **Readable**: structured sections for create, alter, RLS, indexes  
 - **No temp/probe migrations**  
 - **Never manual changes** in Supabase UI, always via migrations  
-- **Review checklist** enforced before commit
+- **Commit-and-push only**: All future schema updates must follow the "commit-and-push only" process to trigger the single automated workflow
 
-MigrationAgent works with other agents to ensure schema integrity, security, and minimal clutter in `/supabase/migrations/`.
+MigrationAgent works with other agents to ensure schema integrity, security, and minimal clutter in `/supabase/migrations/` following the ONE MIGRATION FILE, ONE WORKFLOW principle.
 
 ## Security notes
 - Anon key is public; RLS is the real gate. Keep policies tight.
