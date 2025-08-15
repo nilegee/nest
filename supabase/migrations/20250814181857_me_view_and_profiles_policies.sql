@@ -161,13 +161,39 @@ END $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='on_auth_user_created') THEN
-    DROP TRIGGER on_auth_user_created ON auth.users;
+  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'auth')
+     AND EXISTS (
+       SELECT 1
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'auth' AND c.relname = 'users' AND c.relkind = 'r'
+     )
+  THEN
+    -- Ensure function exists or is replaced safely
+    -- CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger AS $$ ... $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+    CREATE TRIGGER on_auth_user_created
+      AFTER INSERT ON auth.users
+      FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
   END IF;
-  CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-END $$;
+END
+$$;
+
+-- Down/rollback guard:
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'auth')
+     AND EXISTS (
+       SELECT 1
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'auth' AND c.relname = 'users' AND c.relkind = 'r'
+     )
+  THEN
+    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+  END IF;
+END
+$$;
 
 -- 5) RLS on profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
