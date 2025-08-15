@@ -135,7 +135,8 @@ async function runAllTests() {
   
   const testSuites = [
     { path: 'src/cards/birthdays-test.js', function: 'runBirthdayTests' },
-    { path: 'src/ui-contract-test.js', function: 'runUIContractTests' }
+    { path: 'src/ui-contract-test.js', function: 'runUIContractTests' },
+    { path: 'test/console-error-fixes.js', function: 'testConsoleErrorFixes' }
   ];
   
   const results = [];
