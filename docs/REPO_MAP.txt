@@ -72,6 +72,9 @@
 ## Documentation (`/docs/`)
 ```
 /docs/REPO_MAP.txt             # This file - repository structure guide
+/docs/DATABASE_AUTO_UPDATE_GUIDE.md  # Supabase auto-update system explanation
+/docs/QA.md                    # QA checklist for deployments
+/docs/RLS_FIX_README.md        # RLS policy fix documentation
 ```
 
 ## Phase 1 Features Map
