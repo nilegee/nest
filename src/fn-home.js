@@ -6,6 +6,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { ensureUserProfile } from './utils/profile-utils.js';
 
 // Import Phase 1 components
 import './views/events-view.js';
@@ -271,17 +272,18 @@ export class FnHome extends LitElement {
     if (!this.session?.user?.id) return;
     
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', this.session.user.id)
-        .single();
+      // Use utility to ensure profile exists
+      const profile = await ensureUserProfile(
+        this.session.user.id,
+        this.session.user.email,
+        this.session.user.user_metadata
+      );
       
-      if (error) {
-        console.log('Profile not found, user may need to complete setup');
-        this.userProfile = null;
+      if (profile) {
+        this.userProfile = profile;
       } else {
-        this.userProfile = data;
+        console.log('Failed to create or load user profile');
+        this.userProfile = null;
       }
     } catch (error) {
       console.log('Error loading profile:', error);
