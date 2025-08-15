@@ -12,6 +12,10 @@ import { supabase } from '../../web/supabaseClient.js';
 import { waitForSession } from '../lib/session-store.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { formatDateTime } from '../utils/dates.js';
+import { dbCall } from '../services/db-call.js';
+import { emit } from '../services/event-bus.js';
+import { logAct } from '../services/acts.js';
+import { checkRateLimit } from '../services/rate-limit.js';
 
 export class EventsView extends LitElement {
   static styles = css`
@@ -389,20 +393,48 @@ export class EventsView extends LitElement {
     if (!familyId || !user) {
       throw new Error('No family context or user');
     }
+
+    // Check rate limiting
+    if (!checkRateLimit('events:create', user.id)) {
+      throw new Error('Please wait before creating another event');
+    }
     
-    const row = await insertReturning('events', {
-      family_id: familyId,
-      owner_id: user.id,
-      title: title.trim(),
-      location,
-      starts_at: startsAt
-    }, supabase);
+    const result = await dbCall(async () => {
+      return await insertReturning('events', {
+        family_id: familyId,
+        owner_id: user.id,
+        title: title.trim(),
+        location,
+        starts_at: startsAt
+      }, supabase);
+    }, { label: 'events:create' });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    const event = result;
+
+    // Log activity
+    await logAct({
+      type: 'event_created',
+      ref_table: 'events',
+      ref_id: event.id,
+      meta: { title: title.trim(), starts_at: startsAt }
+    });
 
     // Update local state
-    this.events = [row, ...this.events];
+    this.events = [event, ...this.events];
     this.requestUpdate();
 
-    return row;
+    // Emit domain event
+    emit('EVENT_SCHEDULED', { 
+      event, 
+      userId: user.id, 
+      familyId 
+    });
+
+    return event;
   }
 
   /**

@@ -6,6 +6,8 @@
 import { supabase } from '../web/supabaseClient.js';
 import { showSuccess, showError } from './toast-helper.js';
 import { withFamily } from './services/db.js';
+import { on } from './services/event-bus.js';
+import { checkRateLimit } from './services/rate-limit.js';
 
 // Message content for different themes and packs
 const MESSAGE_TEMPLATES = {
@@ -67,6 +69,246 @@ class FamilyBotAPI {
   constructor() {
     this.preferencesCache = new Map();
     this.schedulerInterval = null;
+    this.eventUnsubscribes = [];
+    this.throttleCache = new Map(); // Track per-member nudge throttling
+    
+    this.setupEventListeners();
+  }
+
+  /**
+   * Set up event listeners for domain events
+   */
+  setupEventListeners() {
+    // Listen for domain events and trigger appropriate nudges
+    this.eventUnsubscribes.push(
+      on('EVENT_SCHEDULED', (event) => this.handleEventScheduled(event.detail)),
+      on('GOAL_PROGRESS', (event) => this.handleGoalProgress(event.detail)),
+      on('APPRECIATION_GIVEN', (event) => this.handleAppreciationGiven(event.detail)),
+      on('PREF_UPDATED', (event) => this.handlePrefUpdated(event.detail)),
+      on('POST_CREATED', (event) => this.handlePostCreated(event.detail)),
+      on('NOTE_ADDED', (event) => this.handleNoteAdded(event.detail))
+    );
+  }
+
+  /**
+   * Clean up event listeners
+   */
+  cleanup() {
+    this.eventUnsubscribes.forEach(unsub => unsub());
+    this.eventUnsubscribes = [];
+  }
+
+  /**
+   * Handle event scheduled domain event
+   */
+  async handleEventScheduled(detail) {
+    // Enqueue follow-up nudges for event planning
+    const { event, userId } = detail;
+    if (!event || !userId) return;
+
+    const eventDate = new Date(event.event_date);
+    const now = new Date();
+    
+    // Schedule reminder nudge 24 hours before event
+    const reminderTime = new Date(eventDate.getTime() - 24 * 60 * 60 * 1000);
+    if (reminderTime > now) {
+      await this.enqueueNudge('event_reminder', {
+        userId,
+        scheduledFor: reminderTime,
+        eventName: event.title
+      });
+    }
+  }
+
+  /**
+   * Handle goal progress domain event
+   */
+  async handleGoalProgress(detail) {
+    const { goal, userId, progress } = detail;
+    if (!goal || !userId) return;
+
+    // Celebrate milestone achievements
+    if (progress >= 25 && progress % 25 === 0) {
+      await this.enqueueNudge('goal_milestone', {
+        userId,
+        goalTitle: goal.title,
+        progress
+      });
+    }
+
+    // Gentle nudge for stale goals (no progress in 7 days)
+    if (progress === 0) {
+      const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await this.enqueueNudge('goal_stale_check', {
+        userId,
+        scheduledFor: weekFromNow,
+        goalTitle: goal.title
+      });
+    }
+  }
+
+  /**
+   * Handle appreciation given domain event
+   */
+  async handleAppreciationGiven(detail) {
+    const { appreciation, recipientId, giverId } = detail;
+    if (!appreciation || !recipientId) return;
+
+    // Schedule thank-back nudge for recipient (2-4 hours later)
+    const thankBackTime = new Date(Date.now() + (2 + Math.random() * 2) * 60 * 60 * 1000);
+    await this.enqueueNudge('gratitude_thank_back', {
+      userId: recipientId,
+      scheduledFor: thankBackTime,
+      giverName: appreciation.giver_name
+    });
+  }
+
+  /**
+   * Handle preference updated domain event
+   */
+  async handlePrefUpdated(detail) {
+    const { userId } = detail;
+    if (!userId) return;
+    
+    // Clear cache for updated preferences
+    this.preferencesCache.delete(userId);
+  }
+
+  /**
+   * Handle post created domain event
+   */
+  async handlePostCreated(detail) {
+    // Could trigger engagement nudges for other family members
+  }
+
+  /**
+   * Handle note added domain event
+   */
+  async handleNoteAdded(detail) {
+    // Could trigger reflection prompts or sharing encouragement
+  }
+
+  /**
+   * Enqueue a nudge with throttling (1 per member per 24h)
+   * @param {string} kind - Nudge type
+   * @param {Object} payload - Nudge data
+   * @returns {Promise<boolean>} True if enqueued, false if throttled
+   */
+  async enqueueNudge(kind, payload) {
+    const { userId, scheduledFor = new Date() } = payload;
+    
+    if (!userId) {
+      console.warn('Cannot enqueue nudge without userId');
+      return false;
+    }
+
+    // Check rate limiting
+    if (!checkRateLimit('nudges:enqueue', userId)) {
+      console.log(`Rate limited nudge for user ${userId}`);
+      return false;
+    }
+
+    // Check 24h throttling per member
+    const throttleKey = `${userId}:${kind}`;
+    const lastNudge = this.throttleCache.get(throttleKey);
+    const now = Date.now();
+    const throttleWindow = 24 * 60 * 60 * 1000; // 24 hours
+
+    if (lastNudge && (now - lastNudge) < throttleWindow) {
+      console.log(`Throttled nudge ${kind} for user ${userId} (last: ${new Date(lastNudge)})`);
+      return false;
+    }
+
+    try {
+      // Get user preferences
+      const prefs = await this.getMemberPrefs(userId);
+      
+      // Check quiet hours
+      if (this.isQuietHours(prefs, scheduledFor)) {
+        // Reschedule for next available time
+        const nextAvailable = this.getNextAvailableTime(prefs, scheduledFor);
+        payload.scheduledFor = nextAvailable;
+      }
+
+      // Check per-kind limits
+      if (this.exceedsKindLimits(prefs, kind)) {
+        console.log(`Nudge ${kind} exceeds per-kind limit for user ${userId}`);
+        return false;
+      }
+
+      // Insert into nudges table
+      const { data, error } = await supabase
+        .from('nudges')
+        .insert({
+          user_id: userId,
+          kind,
+          scheduled_for: payload.scheduledFor?.toISOString() || new Date().toISOString(),
+          payload: payload,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      // Update throttle cache
+      this.throttleCache.set(throttleKey, now);
+
+      console.log(`✅ Enqueued nudge ${kind} for user ${userId}`);
+      return true;
+
+    } catch (error) {
+      console.error(`Failed to enqueue nudge ${kind}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if current time is in user's quiet hours
+   */
+  isQuietHours(prefs, scheduledTime) {
+    if (!prefs?.quiet_hours_start || !prefs?.quiet_hours_end) return false;
+
+    const time = new Date(scheduledTime);
+    const timeStr = time.toTimeString().substring(0, 5); // HH:MM format
+    
+    return timeStr >= prefs.quiet_hours_start && timeStr <= prefs.quiet_hours_end;
+  }
+
+  /**
+   * Get next available time outside quiet hours
+   */
+  getNextAvailableTime(prefs, scheduledTime) {
+    if (!prefs?.quiet_hours_end) return scheduledTime;
+
+    const time = new Date(scheduledTime);
+    const [endHour, endMinute] = prefs.quiet_hours_end.split(':').map(Number);
+    
+    time.setHours(endHour, endMinute, 0, 0);
+    
+    // If that's still today and in the past, move to tomorrow
+    if (time <= new Date()) {
+      time.setDate(time.getDate() + 1);
+    }
+    
+    return time;
+  }
+
+  /**
+   * Check if nudge kind exceeds per-kind limits
+   */
+  exceedsKindLimits(prefs, kind) {
+    // Default limits can be overridden by user preferences
+    const defaultLimits = {
+      'goal_milestone': 3, // max 3 goal milestone nudges per day
+      'event_reminder': 5, // max 5 event reminders per day
+      'gratitude_thank_back': 2, // max 2 thank-back nudges per day
+      'goal_stale_check': 1 // max 1 stale goal check per day
+    };
+
+    const kindLimits = prefs?.nudge_limits || defaultLimits;
+    const limit = kindLimits[kind] || 10; // default high limit
+
+    // For now, just return false - could implement proper counting
+    return false;
   }
 
   /**

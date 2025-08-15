@@ -12,6 +12,10 @@ import { supabase } from '../../web/supabaseClient.js';
 import { waitForSession } from '../lib/session-store.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { ACT_KINDS } from '../constants.js';
+import { dbCall } from '../services/db-call.js';
+import { emit } from '../services/event-bus.js';
+import { logAct } from '../services/acts.js';
+import { checkRateLimit } from '../services/rate-limit.js';
 
 // TODO: Remove KIND_MAP once DB acts_kind_check is updated to new values
 const KIND_MAP = {
@@ -423,6 +427,11 @@ export class GoalsView extends LitElement {
     if (!familyId || !user) {
       throw new Error('No family context or user');
     }
+
+    // Check rate limiting
+    if (!checkRateLimit('goals:update', user.id)) {
+      throw new Error('Please wait before logging another act');
+    }
     
     // Validate kind against allowed values
     if (!ACT_KINDS.includes(kind)) {
@@ -442,12 +451,37 @@ export class GoalsView extends LitElement {
       payload.kind = KIND_MAP[payload.kind];
     }
     
-    const row = await insertReturning('acts', payload, supabase);
+    const result = await dbCall(async () => {
+      return await insertReturning('acts', payload, supabase);
+    }, { label: 'goals:create-act' });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    const act = result;
+
+    // Use the new logAct service for additional logging
+    await logAct({
+      type: 'goal_progress',
+      ref_table: 'acts',
+      ref_id: act.id,
+      meta: { kind, points, ...meta }
+    });
 
     // Update local state - add to acts list
-    this.acts = [row, ...this.acts];
+    this.acts = [act, ...this.acts];
     this.loadCurrentGoal(); // Refresh goal progress
     this.requestUpdate();
+
+    // Emit domain event
+    emit('GOAL_PROGRESS', { 
+      act, 
+      userId: user.id, 
+      familyId,
+      progress: points,
+      goal: this.currentGoal
+    });
     
     return true;
   }

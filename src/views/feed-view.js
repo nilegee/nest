@@ -11,6 +11,10 @@ import { insertReturning, deleteById } from '../lib/db-helpers.js';
 import { supabase } from '../../web/supabaseClient.js';
 import { getFamilyId, getUserProfile, getUser } from '../services/session-store.js';
 import { getTemplateFromHash } from '../router/router.js';
+import { dbCall } from '../services/db-call.js';
+import { emit } from '../services/event-bus.js';
+import { logAct } from '../services/acts.js';
+import { checkRateLimit } from '../services/rate-limit.js';
 
 export class FeedView extends LitElement {
   static styles = css`
@@ -329,24 +333,53 @@ export class FeedView extends LitElement {
       return;
     }
 
+    // Check rate limiting
+    if (!checkRateLimit('posts:create', user.id)) {
+      ui.toastError('Please wait before posting again');
+      return;
+    }
+
     this.loading = true;
     
     try {
-      const row = await insertReturning('posts', {
-        family_id: familyId,
-        author_id: user.id,
-        body: this.feedText.trim(),
-        visibility: 'family'
-      }, supabase);
+      const result = await dbCall(async () => {
+        return await insertReturning('posts', {
+          family_id: familyId,
+          author_id: user.id,
+          body: this.feedText.trim(),
+          visibility: 'family'
+        }, supabase);
+      }, { label: 'feed:create-post' });
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      const post = result;
+
+      // Log activity
+      await logAct({
+        type: 'post_created',
+        ref_table: 'posts',
+        ref_id: post.id,
+        meta: { body_length: this.feedText.trim().length }
+      });
 
       // Update local state
-      this.posts = [row, ...this.posts];
+      this.posts = [post, ...this.posts];
       this.feedText = '';
       this.template = null;
       ui.toastSuccess('Post shared with family!');
       
-      // Emit event for other components to react
-      window.dispatchEvent(new CustomEvent('post-created', { detail: row }));
+      // Emit domain event
+      emit('POST_CREATED', { 
+        post, 
+        userId: user.id, 
+        familyId 
+      });
+      
+      // Legacy event for backward compatibility
+      window.dispatchEvent(new CustomEvent('post-created', { detail: post }));
       
     } catch (error) {
       console.error('Failed to create post:', error);

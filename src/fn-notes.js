@@ -9,6 +9,10 @@ import { waitForSession } from './lib/session-store.js';
 import { insertReturning, deleteById } from './lib/db-helpers.js';
 import { showSuccess, showError } from './toast-helper.js';
 import { withFamily } from './services/db.js';
+import { dbCall } from './services/db-call.js';
+import { emit } from './services/event-bus.js';
+import { logAct } from './services/acts.js';
+import { checkRateLimit } from './services/rate-limit.js';
 
 export class FnNotes extends LitElement {
   static properties = {
@@ -403,6 +407,12 @@ export class FnNotes extends LitElement {
       return;
     }
 
+    // Check rate limiting for new notes
+    if (!this.editingNote && !checkRateLimit('notes:create', this.session.user.id)) {
+      showError('Please wait before creating another note');
+      return;
+    }
+
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -427,27 +437,58 @@ export class FnNotes extends LitElement {
       let result;
       if (this.editingNote) {
         // Update existing note
-        const { data, error } = await supabase
-          .from('notes')
-          .update(payload)
-          .eq('id', this.editingNote.id)
-          .select()
-          .single();
+        result = await dbCall(async () => {
+          const { data, error } = await supabase
+            .from('notes')
+            .update(payload)
+            .eq('id', this.editingNote.id)
+            .select()
+            .single();
 
-        if (error) throw error;
-        result = data;
+          if (error) throw error;
+          return data;
+        }, { label: 'notes:update' });
+
+        if (result.error) throw result.error;
 
         // Update in local array
         const index = this.notes.findIndex(n => n.id === this.editingNote.id);
         if (index > -1) {
           this.notes[index] = result;
         }
+
+        // Log activity for updates
+        await logAct({
+          type: 'note_updated',
+          ref_table: 'notes',
+          ref_id: result.id,
+          meta: { template: this.selectedTemplate, body_length: this.noteContent.trim().length }
+        });
       } else {
         // Create new note
-        result = await insertReturning('notes', payload, supabase);
+        result = await dbCall(async () => {
+          return await insertReturning('notes', payload, supabase);
+        }, { label: 'notes:create' });
+
+        if (result.error) throw result.error;
 
         // Add to local array
         this.notes = [result, ...this.notes];
+
+        // Log activity for new notes
+        await logAct({
+          type: 'note_created',
+          ref_table: 'notes',
+          ref_id: result.id,
+          meta: { template: this.selectedTemplate, body_length: this.noteContent.trim().length }
+        });
+
+        // Emit domain event for new notes
+        emit('NOTE_ADDED', { 
+          note: result, 
+          userId: this.session.user.id, 
+          familyId: profile.family_id 
+        });
       }
 
       this.clearComposer();
