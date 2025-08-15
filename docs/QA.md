@@ -405,6 +405,132 @@
   - [ ] No failed requests
   - [ ] Reasonable load times for all resources
 
+## New Autonomous Architecture (January 2025)
+
+### Event Bus & Domain Events
+- [ ] **Event Emission**
+  - [ ] POST_CREATED events fire when creating feed posts
+  - [ ] EVENT_SCHEDULED events fire when creating calendar events
+  - [ ] GOAL_PROGRESS events fire when logging acts/goals
+  - [ ] NOTE_ADDED events fire when creating notes
+  - [ ] DB_OK/DB_ERROR events fire for all database operations
+
+- [ ] **Event Subscription**
+  - [ ] FamilyBot listens to all domain events
+  - [ ] Context store updates on relevant events
+  - [ ] Components respond to context:updated events
+  - [ ] No console errors from event handling
+
+### FamilyBot Autonomous Operation
+- [ ] **Nudge Generation**
+  - [ ] Event reminders scheduled 24h before events
+  - [ ] Goal milestone celebrations trigger automatically
+  - [ ] Appreciation thank-back prompts enqueue properly
+  - [ ] Stale goal checks schedule after 7 days inactivity
+
+- [ ] **Throttling & Rate Limiting**
+  - [ ] Max 1 nudge per member per 24h per type
+  - [ ] Quiet hours respected (no nudges during configured times)
+  - [ ] Per-kind daily limits enforced (3 milestones, 5 reminders, etc.)
+  - [ ] Rate limiting prevents spam (posts, events, goals, notes)
+
+- [ ] **Nudge Queue**
+  - [ ] Nudges inserted into database with proper scheduling
+  - [ ] Status tracking (pending, sent, failed)
+  - [ ] Preference-based filtering works
+  - [ ] No duplicate nudges for same event
+
+### Session Management & Security
+- [ ] **Session Timeout**
+  - [ ] 30-minute inactivity timeout active
+  - [ ] User activity resets timeout (mouse, keyboard, touch)
+  - [ ] Warning toast appears before automatic logout
+  - [ ] Session cleanup on timeout and manual logout
+
+- [ ] **Content Security Policy**
+  - [ ] CSP header prevents unauthorized scripts
+  - [ ] All allowed domains function correctly
+  - [ ] No CSP violations in console
+  - [ ] CDN resources load without issues
+
+- [ ] **Rate Limiting Protection**
+  - [ ] Rapid posting/event creation blocked appropriately
+  - [ ] User sees helpful rate limit messages
+  - [ ] Different operation types have separate limits
+  - [ ] Rate limits reset after time window expires
+
+### New 4-Route Architecture
+- [ ] **Primary Routes**
+  - [ ] #nest - Dashboard view (unchanged)
+  - [ ] #plan - Merged events + goals planning view
+  - [ ] #journal - Merged feed + notes journaling view
+  - [ ] #profile - User settings (unchanged)
+
+- [ ] **Plan View Features**
+  - [ ] Events section shows upcoming events with quick actions
+  - [ ] Goals section shows progress with stale goal warnings
+  - [ ] Quick action buttons navigate to specific forms
+  - [ ] Skeleton loaders during data fetch
+  - [ ] Responsive grid layout (2-column desktop, 1-column mobile)
+
+- [ ] **Journal View Features**
+  - [ ] Tabbed interface: Family Feed / Personal Notes
+  - [ ] Context-aware sidebar with weekly statistics
+  - [ ] Embedded view components work correctly
+  - [ ] Tab switching preserves state
+  - [ ] Quick tips and suggestions in sidebar
+
+- [ ] **Navigation Changes**
+  - [ ] Only 4 main routes visible in navigation
+  - [ ] Chores hidden when FLAGS.chores = false
+  - [ ] Legacy routes still accessible directly
+  - [ ] Mobile navigation reflects new structure
+
+### Database Operations
+- [ ] **Consistent Error Handling**
+  - [ ] All writes use dbCall() wrapper
+  - [ ] Toast notifications for all errors
+  - [ ] DB_ERROR events emit with proper context
+  - [ ] No silent failures in any view
+
+- [ ] **Activity Logging**
+  - [ ] All user actions logged to acts table
+  - [ ] Proper activity types (post_created, event_scheduled, etc.)
+  - [ ] Activity metadata captured appropriately
+  - [ ] ACT_LOGGED events fire for all activities
+
+- [ ] **Auto DB Migrations**
+  - [ ] Migration workflow validates syntax on PR
+  - [ ] Migrations auto-apply on merge to main
+  - [ ] Schema documentation regenerates automatically
+  - [ ] No manual intervention required for DB changes
+
+### Context Store & Derived State
+- [ ] **State Management**
+  - [ ] Selectors return correct upcoming events
+  - [ ] Stale goals identified properly (>7 days inactive)
+  - [ ] Delta refresh triggers on domain events
+  - [ ] Local state stays synchronized with backend
+
+- [ ] **Performance Optimization**
+  - [ ] Only relevant data refreshed on events
+  - [ ] Minimal database queries triggered
+  - [ ] State cache invalidation works correctly
+  - [ ] No unnecessary re-renders
+
+### Error Recovery & Edge Cases
+- [ ] **Network Resilience**
+  - [ ] Domain events still fire on network failures
+  - [ ] Rate limiting doesn't break on errors
+  - [ ] Context store gracefully handles fetch failures
+  - [ ] FamilyBot continues operating despite individual failures
+
+- [ ] **Session Edge Cases**
+  - [ ] Multiple tabs handle session timeout correctly
+  - [ ] Activity tracking works across browser tabs
+  - [ ] Session cleanup completes on browser close
+  - [ ] Auth state synchronizes between components
+
 ## Edge Cases
 - [ ] **Empty States**
   - [ ] Feed placeholder shows when no posts
