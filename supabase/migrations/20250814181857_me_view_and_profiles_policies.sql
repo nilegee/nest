@@ -49,7 +49,7 @@ BEGIN
   END IF;
 END $$;
 
--- 2a) Uniqueness on name (constraint style so ORMs see it)
+-- 2a) Uniqueness on name
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='families_name_key') THEN
@@ -76,7 +76,7 @@ BEGIN
       updated_at timestamptz NOT NULL DEFAULT now()
     );
   ELSE
-    -- Add any missing columns safely (no type alterations to avoid enum/text clashes)
+    -- Add missing columns safely
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_schema='public' AND table_name='profiles' AND column_name='email'
@@ -115,7 +115,7 @@ BEGIN
   END IF;
 END $$;
 
--- 3a) Backfill family_id using a default family (safe if exists)
+-- 3a) Backfill family_id
 WITH up AS (
   INSERT INTO public.families (name)
   VALUES ('G Family')
@@ -146,13 +146,14 @@ SECURITY DEFINER
 SET search_path = public
 LANGUAGE plpgsql AS $$
 BEGIN
-  INSERT INTO public.profiles (user_id, email, full_name, avatar_url, family_id)
+  INSERT INTO public.profiles (user_id, email, full_name, avatar_url, family_id, role)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name',''),
     COALESCE(NEW.raw_user_meta_data->>'avatar_url',''),
-    (SELECT id FROM public.families WHERE name='G Family' LIMIT 1)
+    (SELECT id FROM public.families WHERE name='G Family' LIMIT 1),
+    'member'
   )
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
@@ -168,7 +169,7 @@ BEGIN
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 END $$;
 
--- 5) RLS on profiles (self-only)
+-- 5) RLS on profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$
