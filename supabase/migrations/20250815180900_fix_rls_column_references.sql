@@ -1,17 +1,27 @@
--- Fix RLS Policy Column References and Foreign Key Constraints
--- Fixes 403 errors by correcting profile column references in RLS policies
--- The policies were using 'id' but the actual schema uses 'user_id' as primary key
--- Also fixes foreign key constraints that reference the wrong column
-
 -- ============================================
--- FOREIGN KEY CONSTRAINTS FIX
+-- Ensure profiles.user_id is UNIQUE
 -- ============================================
 
--- Drop FK if exists
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'profiles_user_id_key'
+      AND conrelid = 'public.profiles'::regclass
+  ) THEN
+    EXECUTE 'ALTER TABLE public.profiles
+             ADD CONSTRAINT profiles_user_id_key UNIQUE (user_id)';
+  END IF;
+END $$;
+
+-- ============================================
+-- Fix posts table foreign key to reference user_id
+-- ============================================
+
 ALTER TABLE IF EXISTS public.posts
 DROP CONSTRAINT IF EXISTS posts_author_id_fkey;
 
--- Add correct FK (will fail if already exists, so make sure above DROP runs)
 ALTER TABLE IF EXISTS public.posts
 ADD CONSTRAINT posts_author_id_fkey
 FOREIGN KEY (author_id)
@@ -19,7 +29,7 @@ REFERENCES public.profiles(user_id)
 ON DELETE CASCADE;
 
 -- ============================================
--- PROFILES TABLE POLICIES FIX
+-- RLS POLICIES FIXES (unchanged from before)
 -- ============================================
 
 DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
@@ -32,7 +42,7 @@ CREATE POLICY "profiles self update" ON public.profiles
   FOR UPDATE USING (auth.uid() = user_id);
 
 -- ============================================
--- EVENTS TABLE POLICIES FIX  
+-- EVENTS TABLE POLICIES FIX
 -- ============================================
 
 DROP POLICY IF EXISTS "events family read" ON public.events;
