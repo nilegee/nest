@@ -1,4 +1,5 @@
 name: Deploy Supabase Migrations
+
 on:
   push:
     branches: [ main ]
@@ -26,11 +27,11 @@ jobs:
       - name: Deploy migrations
         run: |
           echo "Deploying migrations incrementally..."
-          supabase db deploy --db-url "$DATABASE_URL" --debug
+          supabase db push --debug
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Verify deployment
-        run: supabase migration list --db-url "$DATABASE_URL"
+        run: supabase migration list
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
