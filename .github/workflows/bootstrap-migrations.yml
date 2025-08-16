@@ -21,10 +21,10 @@ jobs:
 
       - uses: supabase/setup-cli@v1
 
-      - name: Run bootstrap migrations (force remote apply)
+      - name: Run bootstrap migrations (apply to remote DB)
         run: |
           echo "Bootstrapping migrations directly to remote DB..."
-          supabase migration deploy --db-url "$DATABASE_URL" --debug
+          supabase db push --debug
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
