@@ -26,6 +26,7 @@ Thumbs.db
 
 # Test files
 test-responsive.html
+fix-console-errors-guide.html
 
 # Migration backups
 *.sql.backup
