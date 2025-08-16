@@ -216,7 +216,9 @@ export class EventsView extends LitElement {
     this.newEvent = {
       title: '',
       event_date: '',
-      type: 'custom'
+      type: 'custom',
+      category: 'custom',
+      recurrence: 'none'
     };
   }
 
@@ -250,7 +252,9 @@ export class EventsView extends LitElement {
     this.newEvent = {
       title: '',
       event_date: '',
-      type: 'custom'
+      type: 'custom',
+      category: 'custom',
+      recurrence: 'none'
     };
   }
 
@@ -300,11 +304,78 @@ export class EventsView extends LitElement {
     });
   }
 
-  getEventIcon(type) {
-    switch (type) {
-      case 'birthday': return 'material-symbols:cake';
-      case 'anniversary': return 'material-symbols:favorite';
-      default: return 'material-symbols:event';
+  getEventIcon(category) {
+    switch (category) {
+      case 'birthday': return 'mdi:cake';
+      case 'anniversary': return 'mdi:heart';
+      case 'travel': return 'mdi:airplane';
+      case 'appointment': return 'mdi:calendar-clock';
+      case 'restaurant': return 'mdi:silverware-fork-knife';
+      case 'play_area': return 'mdi:playground';
+      default: return 'mdi:calendar';
+    }
+  }
+
+  /**
+   * Calculate days until event
+   */
+  getDaysUntil(dateString) {
+    const eventDate = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = eventDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  }
+
+  /**
+   * Format countdown text
+   */
+  getCountdownText(days) {
+    if (days === 0) return 'today';
+    if (days === 1) return 'tomorrow';
+    if (days === -1) return 'yesterday';
+    if (days < 0) return `${Math.abs(days)} days ago`;
+    if (days <= 7) return `in ${days} days`;
+    if (days <= 14) return `in ${Math.ceil(days / 7)} week${Math.ceil(days / 7) > 1 ? 's' : ''}`;
+    if (days <= 30) return `in ${Math.ceil(days / 7)} weeks`;
+    return `in ${Math.ceil(days / 30)} months`;
+  }
+
+  /**
+   * Generate dynamic display text based on category
+   */
+  getEventDisplayText(event) {
+    const days = this.getDaysUntil(event.event_date);
+    const countdownText = this.getCountdownText(days);
+    
+    switch (event.category) {
+      case 'birthday': {
+        // Try to calculate age if we can extract it from the title or meta
+        const match = event.title.match(/(\w+).*(\d+)/);
+        if (match) {
+          const name = match[1];
+          const currentAge = parseInt(match[2]);
+          const nextAge = currentAge + 1;
+          return `${name} turns ${nextAge} ${countdownText}`;
+        }
+        return `${event.title} ${countdownText}`;
+      }
+      case 'anniversary':
+        return `${event.title} ${countdownText}`;
+      case 'travel':
+        return `${event.title} ${countdownText}`;
+      case 'appointment':
+        return `${event.title} ${countdownText}`;
+      case 'restaurant':
+        return `${event.title} ${countdownText}`;
+      case 'play_area':
+        return `${event.title} ${countdownText}`;
+      default:
+        return `${event.title} ${countdownText}`;
     }
   }
 
@@ -332,12 +403,12 @@ export class EventsView extends LitElement {
           ${this.events.map(event => html`
             <div class="event-card">
               <div class="event-header">
-                <iconify-icon icon="${this.getEventIcon(event.type)}" class="event-icon"></iconify-icon>
+                <iconify-icon icon="${this.getEventIcon(event.category || event.type)}" class="event-icon"></iconify-icon>
                 <div style="flex: 1;">
-                  <div class="event-title">${event.title}</div>
+                  <div class="event-title">${this.getEventDisplayText(event)}</div>
                   <div class="event-date">${this.formatDate(event.event_date)}</div>
                 </div>
-                <span class="event-type">${event.type}</span>
+                <span class="event-type">${event.category || event.type}</span>
               </div>
             </div>
           `)}
@@ -382,17 +453,35 @@ export class EventsView extends LitElement {
               </div>
 
               <div class="form-group">
-                <label class="form-label" for="type">Event Type</label>
+                <label class="form-label" for="category">Category</label>
                 <select
-                  id="type"
-                  name="type"
+                  id="category"
+                  name="category"
                   class="form-select"
-                  .value=${this.newEvent.type}
+                  .value=${this.newEvent.category}
                   @change=${this.handleInputChange}
                 >
                   <option value="custom">Custom Event</option>
-                  <option value="birthday">Birthday</option>
-                  <option value="anniversary">Anniversary</option>
+                  <option value="birthday">🎂 Birthday</option>
+                  <option value="anniversary">💕 Anniversary</option>
+                  <option value="travel">✈️ Travel</option>
+                  <option value="appointment">🏥 Appointment</option>
+                  <option value="restaurant">🍽️ Restaurant</option>
+                  <option value="play_area">🎪 Play Area</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="recurrence">Recurrence</label>
+                <select
+                  id="recurrence"
+                  name="recurrence"
+                  class="form-select"
+                  .value=${this.newEvent.recurrence}
+                  @change=${this.handleInputChange}
+                >
+                  <option value="none">One-time event</option>
+                  <option value="annual">Annual (repeats yearly)</option>
                 </select>
               </div>
 
