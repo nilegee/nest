@@ -32,6 +32,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Verify deployment
-        run: supabase migration list
+        run: |
+          echo "Listing applied migrations from database..."
+          psql "$DATABASE_URL" -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version;"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
