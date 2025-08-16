@@ -4,6 +4,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
+import { WHITELISTED_EMAILS } from '../web/env.js';
 
 export class FnHome extends LitElement {
   static properties = {
@@ -157,9 +158,16 @@ export class FnHome extends LitElement {
 
       if (selectError) {
         console.log('Profile select error:', selectError);
+        console.log('Current session user:', {
+          id: this.session.user.id,
+          email: this.session.user.email,
+          aud: this.session.user.aud,
+          app_metadata: this.session.user.app_metadata,
+          user_metadata: this.session.user.user_metadata
+        });
         
         // If profile doesn't exist or access denied, try to create one
-        if (selectError.code === 'PGRST116' || selectError.message?.includes('row-level security') || selectError.status === 403) {
+        if (selectError.code === 'PGRST116' || selectError.code === '42501' || selectError.message?.includes('row-level security') || selectError.message?.includes('permission denied') || selectError.status === 403) {
           console.log('No existing profile found or access denied, attempting to create new profile...');
           
           // First, ensure the default family exists by trying to select it
@@ -217,7 +225,12 @@ export class FnHome extends LitElement {
           console.log('Profile created successfully:', newProfile);
           this.profile = newProfile;
         } else {
-          console.error('Unexpected profile select error:', selectError);
+          console.error('Profile access denied - this indicates an RLS policy issue:', {
+            error: selectError,
+            userEmail: this.session.user.email,
+            isWhitelisted: WHITELISTED_EMAILS.includes(this.session.user.email)
+          });
+          console.warn('The user is whitelisted but RLS policies are blocking access. This requires database migration to fix.');
         }
       } else if (profile) {
         console.log('Existing profile found:', profile);
