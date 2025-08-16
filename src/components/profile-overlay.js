@@ -249,6 +249,23 @@ export class ProfileOverlay extends LitElement {
     this.loading = true;
     
     try {
+      // Check authentication state before making API calls
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        this.profile = null;
+        this.recentPosts = [];
+        this.loading = false;
+        return;
+      }
+
+      // Double-check that we have a valid session token
+      if (!session.access_token) {
+        this.profile = null;
+        this.recentPosts = [];
+        this.loading = false;
+        return;
+      }
+
       // Load profile data
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -256,8 +273,16 @@ export class ProfileOverlay extends LitElement {
         .eq('user_id', this.userId)
         .single();
 
-      if (profileError) throw profileError;
-      this.profile = profileData;
+      if (profileError) {
+        // Handle any authorization errors gracefully
+        if (profileError.code === 'PGRST301' || profileError.message?.includes('403') || profileError.message?.includes('Forbidden')) {
+          this.profile = null;
+        } else {
+          throw profileError;
+        }
+      } else {
+        this.profile = profileData;
+      }
 
       // Load recent posts by this user
       const { data: postsData, error: postsError } = await supabase
@@ -267,11 +292,21 @@ export class ProfileOverlay extends LitElement {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (postsError) throw postsError;
-      this.recentPosts = postsData || [];
+      if (postsError) {
+        // Handle any authorization errors gracefully
+        if (postsError.code === 'PGRST301' || postsError.message?.includes('403') || postsError.message?.includes('Forbidden')) {
+          this.recentPosts = [];
+        } else {
+          throw postsError;
+        }
+      } else {
+        this.recentPosts = postsData || [];
+      }
 
     } catch (error) {
       // Silent error handling - profile data loading failed
+      this.profile = null;
+      this.recentPosts = [];
     } finally {
       this.loading = false;
     }

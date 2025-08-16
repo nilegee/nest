@@ -5,6 +5,7 @@
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../../web/supabaseClient.js';
+import { WHITELISTED_EMAILS } from '../../web/env.js';
 
 export class UpcomingEventsCard extends LitElement {
   static properties = {
@@ -146,6 +147,20 @@ export class UpcomingEventsCard extends LitElement {
         return;
       }
 
+      // Additional check: ensure user is whitelisted before making requests
+      if (!WHITELISTED_EMAILS.includes(session.user.email)) {
+        this.events = [];
+        this.loading = false;
+        return;
+      }
+
+      // Double-check that we have a valid session token
+      if (!session.access_token) {
+        this.events = [];
+        this.loading = false;
+        return;
+      }
+
       const { data, error } = await supabase
         .from('events')
         .select('*')
@@ -153,8 +168,8 @@ export class UpcomingEventsCard extends LitElement {
         .order('event_date', { ascending: true });
 
       if (error) {
-        // Handle 403 errors gracefully (RLS policy issues)
-        if (error.code === 'PGRST301' || error.message?.includes('403')) {
+        // Handle any authorization errors gracefully - don't log to console
+        if (error.code === 'PGRST301' || error.message?.includes('403') || error.message?.includes('Forbidden')) {
           this.events = [];
           this.loading = false;
           return;
