@@ -42,6 +42,7 @@ export class FnHome extends LitElement {
     }
     .btn-danger { background: #ef4444; color: white; }
     .btn-primary { background: #6366f1; color: white; }
+    .btn-secondary { background: #6b7280; color: white; }
     .btn:disabled { background: #9ca3af; cursor: not-allowed; }
     .card {
       background: white;
@@ -329,10 +330,18 @@ export class FnHome extends LitElement {
             "></iconify-icon>
             <h2 style="margin: 0 0 12px 0; color: #1f2937;">Setting Up Your Profile</h2>
             <p style="margin: 0 0 24px 0; color: #6b7280; line-height: 1.5;">
-              We're having trouble setting up your family profile. This usually resolves automatically.
+              We're having trouble setting up your family profile due to a database configuration issue.<br>
+              Please try refreshing the page, or contact support if the issue persists.
             </p>
             <button 
               class="btn btn-primary" 
+              @click=${this.createProfile}
+              style="margin-right: 12px;"
+            >
+              Try Again
+            </button>
+            <button 
+              class="btn btn-secondary" 
               @click=${() => window.location.reload()}
             >
               Refresh Page
