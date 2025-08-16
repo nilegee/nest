@@ -53,6 +53,22 @@ CREATE TABLE IF NOT EXISTS public.events (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Add new fields for enhanced events system
+DO $$
+BEGIN
+  -- Add category field if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'events' AND column_name = 'category') THEN
+    ALTER TABLE public.events ADD COLUMN category TEXT DEFAULT 'custom' 
+    CHECK (category IN ('birthday', 'anniversary', 'travel', 'appointment', 'restaurant', 'play_area', 'custom'));
+  END IF;
+  
+  -- Add recurrence field if it doesn't exist  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'events' AND column_name = 'recurrence') THEN
+    ALTER TABLE public.events ADD COLUMN recurrence TEXT DEFAULT 'none'
+    CHECK (recurrence IN ('none', 'annual'));
+  END IF;
+END $$;
+
 -- Posts table  
 -- Uses 'content' and 'media_url' columns as used in feed-view.js
 CREATE TABLE IF NOT EXISTS public.posts (

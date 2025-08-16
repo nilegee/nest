@@ -49,23 +49,23 @@ export class FnApp extends LitElement {
         return;
       }
 
-      // Handle session change
+      // Handle initial session
+      if (session?.user?.email) {
+        console.log('Initial session found:', session.user.email);
+      }
       await this.handleSessionChange(session);
 
-      // Listen for auth changes
+      // Listen for auth changes - subscribe only once
       supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === "INITIAL_SESSION") {
-          console.log("Initial session:", session?.user?.email);
-          // Initial session is already handled above, no need to process again
+          // Initial session is already handled above, skip to avoid duplicate processing
+          return;
         } else if (event === "SIGNED_IN") {
           console.log("User signed in:", session?.user?.email);
           await this.handleSessionChange(session);
         } else if (event === "SIGNED_OUT") {
           console.log("User signed out");
           await this.handleSessionChange(null);
-        } else {
-          console.log('Auth state changed:', event, session?.user?.email);
-          await this.handleSessionChange(session);
         }
       });
 
@@ -98,8 +98,6 @@ export class FnApp extends LitElement {
         this.loading = false;
         return;
       }
-      
-      console.log('User authorized, loading home view');
     }
     
     this.session = session;

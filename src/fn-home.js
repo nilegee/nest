@@ -67,6 +67,14 @@ export class FnHome extends LitElement {
         margin-left: 0;
         padding-bottom: 80px; /* Space for bottom navigation */
       }
+      
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .guidance-section {
+        grid-column: span 1;
+      }
     }
     
     .nav-item {
@@ -205,24 +213,6 @@ export class FnHome extends LitElement {
     
     .sign-out-button:hover {
       background: #f8fafc;
-    }
-    
-    @media (max-width: 768px) {
-      .sidebar {
-        display: none;
-      }
-      
-      .main-content {
-        margin-left: 0;
-      }
-      
-      .dashboard-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .guidance-section {
-        grid-column: span 1;
-      }
     }
     
     @media (prefers-reduced-motion: reduce) {
