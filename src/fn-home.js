@@ -1,26 +1,16 @@
 /**
- * Home/Nest component
- * Minimal authenticated view with simple dashboard
- * Now includes navigation and routing to new Phase 1 views
+ * Family Wall - Ultra Minimal
  */
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
-import { ensureUserProfile } from './utils/profile-utils.js';
-
-// Import Phase 1 components
-import './views/events-view.js';
-import './views/feed-view.js';
-import './components/profile-overlay.js';
-import './components/bottom-nav.js';
-import './cards/islamic-guidance-card.js';
-import './cards/upcoming-events-card.js';
 
 export class FnHome extends LitElement {
   static properties = {
     session: { type: Object },
-    userProfile: { type: Object },
-    currentView: { type: String }
+    profile: { type: Object },
+    posts: { type: Array },
+    newPost: { type: String }
   };
 
   static styles = css`
@@ -28,404 +18,241 @@ export class FnHome extends LitElement {
       display: block;
       min-height: 100vh;
       background: #f8fafc;
-      --primary: #3b82f6;
-      --text: #1e293b;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --radius: 8px;
-      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      padding: 16px;
     }
-    
-    .app-layout {
-      display: flex;
-      min-height: 100vh;
-    }
-    
-    .sidebar {
-      width: 240px;
-      background: white;
-      border-right: 1px solid var(--border);
-      padding: 20px;
-      position: fixed;
-      height: 100vh;
-      overflow-y: auto;
-    }
-    
-    .main-content {
-      flex: 1;
-      margin-left: 240px;
-      padding: 20px;
-      padding-bottom: 20px; /* Default for desktop */
-    }
-
-    /* Mobile responsive styles */
-    @media (max-width: 767px) {
-      .sidebar {
-        display: none;
-      }
-
-      .main-content {
-        margin-left: 0;
-        padding-bottom: 80px; /* Space for bottom navigation */
-      }
-      
-      .dashboard-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .guidance-section {
-        grid-column: span 1;
-      }
-    }
-    
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      margin-bottom: 4px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      color: var(--text);
-      text-decoration: none;
-      font-size: 14px;
-      transition: background-color 0.2s ease;
-    }
-    
-    .nav-item:hover {
-      background: #f8fafc;
-    }
-    
-    .nav-item.active {
-      background: var(--primary);
-      color: white;
-    }
-    
-    .nav-item iconify-icon {
-      font-size: 18px;
-    }
-    
-    .sidebar-header {
-      margin-bottom: 32px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-    }
-    
-    .app-title {
-      font-size: 1.25rem;
-      font-weight: bold;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    
-    .app-subtitle {
-      font-size: 12px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-    
+    .container { max-width: 600px; margin: 0 auto; }
     .header {
-      margin-bottom: 40px;
-      text-align: center;
-    }
-    
-    .greeting {
-      font-size: 2rem;
-      font-weight: bold;
-      color: var(--text);
-      margin-bottom: 8px;
-    }
-    
-    .subtitle {
-      color: var(--muted);
-      font-size: 1.1rem;
-    }
-    
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-bottom: 32px;
-    }
-    
-    .guidance-section {
-      grid-column: span 2;
-      margin-bottom: 32px;
-    }
-    
-    .events-section {
-      grid-column: span 2;
-      margin-bottom: 32px;
-    }
-    
-    .quick-link-card {
       background: white;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 24px;
-      border: 1px solid var(--border);
-      text-align: center;
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
-    .quick-link-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.15);
-    }
-    
-    .card-icon {
-      font-size: 3rem;
-      color: var(--primary);
+      border-radius: 8px;
+      padding: 16px;
       margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     }
-    
-    .card-title {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--text);
+    .title { font-size: 1.5rem; font-weight: 700; margin: 0; }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    .greeting {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+    }
+    .textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-family: inherit;
+      resize: vertical;
       margin-bottom: 8px;
     }
-    
-    .card-description {
-      color: var(--muted);
-      margin-bottom: 20px;
+    .textarea:focus { outline: none; border-color: #6366f1; }
+    .text-right { text-align: right; }
+    .post {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
     }
-    
-    .sign-out-button {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 8px 16px;
-      color: var(--text);
-      cursor: pointer;
-      font-size: 14px;
+    .post:last-child { border-bottom: none; margin-bottom: 0; }
+    .post-header {
       display: flex;
       align-items: center;
       gap: 8px;
-      box-shadow: var(--shadow);
-      z-index: 1000;
+      margin-bottom: 8px;
     }
-    
-    .sign-out-button:hover {
-      background: #f8fafc;
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #6366f1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
     }
-    
-    @media (prefers-reduced-motion: reduce) {
-      .nav-item,
-      .quick-link-card {
-        transition: none;
-      }
+    .post-meta { flex: 1; }
+    .author { font-weight: 600; margin: 0; font-size: 14px; }
+    .time { color: #6b7280; font-size: 12px; margin: 0; }
+    .content {
+      color: #374151;
+      line-height: 1.4;
+      margin: 0;
+      white-space: pre-wrap;
+    }
+    .empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6b7280;
     }
   `;
+
   constructor() {
     super();
-    this.userProfile = null;
-    this.currentView = 'dashboard'; // Default view
-    
-    // Listen for hash changes for navigation
-    window.addEventListener('hashchange', () => {
-      this.updateCurrentView();
-    });
-    
-    // Listen for profile overlay events
-    this.addEventListener('show-profile', this.handleShowProfile.bind(this));
-    
-    // Listen for bottom navigation events
-    this.addEventListener('navigate', this.handleBottomNavigation.bind(this));
+    this.session = null;
+    this.profile = null;
+    this.posts = [];
+    this.newPost = '';
   }
 
   async connectedCallback() {
     super.connectedCallback();
-    if (this.session?.user) {
-      await this.loadUserProfile();
-    }
-    this.updateCurrentView();
+    await this.init();
   }
 
-  /**
-   * Update current view based on URL hash
-   */
-  updateCurrentView() {
-    const hash = window.location.hash.slice(1); // Remove #
-    this.currentView = hash || 'dashboard';
+  async init() {
+    await this.createProfile();
+    await this.loadPosts();
   }
 
-  /**
-   * Navigate to a specific view
-   */
-  navigateTo(view) {
-    window.location.hash = view;
-  }
-
-  /**
-   * Handle profile overlay display
-   */
-  handleShowProfile(event) {
-    const overlay = this.shadowRoot.querySelector('profile-overlay');
-    if (overlay) {
-      overlay.show(event.detail.userId);
-    }
-  }
-
-  /**
-   * Handle bottom navigation events
-   */
-  handleBottomNavigation(event) {
-    const view = event.detail.view;
-    this.navigateTo(view);
-  }
-
-  /**
-   * Load user profile from Supabase
-   */
-  async loadUserProfile() {
-    if (!this.session?.user?.id) return;
-    
+  async createProfile() {
+    if (!this.session?.user) return;
     try {
-      // Use utility to ensure profile exists
-      const profile = await ensureUserProfile(
-        this.session.user.id,
-        this.session.user.email,
-        this.session.user.user_metadata
-      );
-      
-      if (profile) {
-        this.userProfile = profile;
-      } else {
-        this.userProfile = null;
+      let { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', this.session.user.id)
+        .single();
+
+      if (!profile) {
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: this.session.user.id,
+            email: this.session.user.email,
+            full_name: this.session.user.user_metadata?.full_name || this.session.user.email.split('@')[0],
+            family_id: '00000000-0000-0000-0000-000000000001'
+          })
+          .select()
+          .single();
+        profile = newProfile;
       }
+      this.profile = profile;
     } catch (error) {
-      this.userProfile = null;
+      console.error('Profile error:', error);
     }
   }
 
-  /**
-   * Handle sign out
-   */
-  async handleSignOut() {
+  async loadPosts() {
     try {
-      await supabase.auth.signOut();
+      const { data: posts } = await supabase
+        .from('posts')
+        .select('*, author:profiles(full_name)')
+        .order('created_at', { ascending: false });
+      this.posts = posts || [];
     } catch (error) {
-      // Silent sign out error handling
+      console.error('Posts error:', error);
     }
+  }
+
+  async createPost() {
+    if (!this.newPost.trim() || !this.profile) return;
+    try {
+      await supabase.from('posts').insert({
+        content: this.newPost.trim(),
+        author_id: this.profile.id,
+        family_id: this.profile.family_id
+      });
+      this.newPost = '';
+      await this.loadPosts();
+    } catch (error) {
+      console.error('Create post error:', error);
+    }
+  }
+
+  signOut() {
+    supabase.auth.signOut();
+  }
+
+  getInitials(name) {
+    return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '?';
+  }
+
+  formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'long' });
+    return date.toLocaleDateString();
+  }
+
+  getGreeting() {
+    const hour = new Date().getHours();
+    const name = this.profile?.full_name?.split(' ')[0] || 'there';
+    if (hour < 12) return `Good morning, ${name}! ☀️`;
+    if (hour < 18) return `Good afternoon, ${name}!`;
+    return `Good evening, ${name}! 🌙`;
   }
 
   render() {
-    if (!this.session?.user) {
-      return html`<div>Loading...</div>`;
-    }
-
-    const userName = this.userProfile?.full_name || this.session.user.email?.split('@')[0] || 'there';
-
     return html`
-      <button class="sign-out-button" @click=${this.handleSignOut}>
-        <iconify-icon icon="material-symbols:logout"></iconify-icon>
-        Sign Out
-      </button>
-      
-      <div class="app-layout">
-        <nav class="sidebar">
-          <div class="sidebar-header">
-            <div class="app-title">🏠 Family Nest</div>
-            <div class="app-subtitle">Phase 1</div>
+      <div class="container">
+        <div class="header">
+          <h1 class="title">Family Wall</h1>
+          <button class="btn btn-danger" @click=${this.signOut}>Sign Out</button>
+        </div>
+
+        <div class="card greeting">
+          <p style="margin: 0;">${this.getGreeting()}</p>
+        </div>
+
+        <div class="card">
+          <label style="display: block; margin-bottom: 8px; font-weight: 500;">Share with the family</label>
+          <textarea
+            class="textarea"
+            placeholder="What's on your mind?"
+            .value=${this.newPost}
+            @input=${(e) => this.newPost = e.target.value}
+          ></textarea>
+          <div class="text-right">
+            <button 
+              class="btn btn-primary"
+              @click=${this.createPost}
+              ?disabled=${!this.newPost.trim()}
+            >Post</button>
           </div>
-          
-          <a class="nav-item ${this.currentView === 'dashboard' ? 'active' : ''}" 
-             @click=${() => this.navigateTo('dashboard')}>
-            <iconify-icon icon="material-symbols:dashboard"></iconify-icon>
-            Dashboard
-          </a>
-          
-          <a class="nav-item ${this.currentView === 'events' ? 'active' : ''}" 
-             @click=${() => this.navigateTo('events')}>
-            <iconify-icon icon="material-symbols:event"></iconify-icon>
-            Events
-          </a>
-          
-          <a class="nav-item ${this.currentView === 'feed' ? 'active' : ''}" 
-             @click=${() => this.navigateTo('feed')}>
-            <iconify-icon icon="material-symbols:forum"></iconify-icon>
-            Family Wall
-          </a>
-        </nav>
-        
-        <main class="main-content">
-          ${this.renderCurrentView(userName)}
-        </main>
+        </div>
+
+        <div class="card">
+          <h2 style="margin: 0 0 16px 0;">Recent Posts</h2>
+          ${this.posts.length === 0 ? html`
+            <div class="empty">No posts yet. Be the first to share!</div>
+          ` : this.posts.map(post => html`
+            <div class="post">
+              <div class="post-header">
+                <div class="avatar">${this.getInitials(post.author?.full_name)}</div>
+                <div class="post-meta">
+                  <p class="author">${post.author?.full_name || 'Family Member'}</p>
+                  <p class="time">${this.formatTime(post.created_at)}</p>
+                </div>
+              </div>
+              <p class="content">${post.content}</p>
+            </div>
+          `)}
+        </div>
       </div>
-      
-      <!-- Bottom Navigation for Mobile -->
-      <bottom-nav .currentView=${this.currentView}></bottom-nav>
-      
-      <!-- Profile Overlay -->
-      <profile-overlay></profile-overlay>
     `;
-  }
-
-  renderCurrentView(userName) {
-    switch (this.currentView) {
-      case 'events':
-        return this.userProfile
-          ? html`<events-view></events-view>`
-          : null;
-      
-      case 'feed':
-        return this.userProfile
-          ? html`<feed-view></feed-view>`
-          : null;
-        
-      case 'dashboard':
-      default:
-        return html`
-          <div class="container">
-            <div class="header">
-              <h1 class="greeting">Welcome ${userName}!</h1>
-              <p class="subtitle">Your family dashboard is ready</p>
-            </div>
-
-            ${this.userProfile
-              ? html`
-                  <div class="guidance-section">
-                    <islamic-guidance-card></islamic-guidance-card>
-                  </div>
-
-                  <div class="events-section">
-                    <upcoming-events-card></upcoming-events-card>
-                  </div>
-                `
-              : null}
-
-            <div class="dashboard-grid">
-              <div class="quick-link-card" @click=${() => this.navigateTo('events')}>
-                <iconify-icon icon="material-symbols:event-add" class="card-icon"></iconify-icon>
-                <h2 class="card-title">Family Events</h2>
-                <p class="card-description">
-                  Manage important family events, celebrations, and milestones.
-                </p>
-              </div>
-              
-              <div class="quick-link-card" @click=${() => this.navigateTo('feed')}>
-                <iconify-icon icon="material-symbols:forum" class="card-icon"></iconify-icon>
-                <h2 class="card-title">Family Wall</h2>
-                <p class="card-description">
-                  Share moments and stay connected with your family.
-                </p>
-              </div>
-            </div>
-          </div>
-        `;
-    }
   }
 }
 
