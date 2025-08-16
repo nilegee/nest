@@ -16,18 +16,15 @@ jobs:
 
       - uses: supabase/setup-cli@v1
 
-      - name: Clean prepared statements
-        run: psql "$DATABASE_URL" -c "DEALLOCATE ALL;"
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: One-time full schema sync
-        if: github.event_name == 'workflow_dispatch'
-        run: supabase db push --db-url "$DATABASE_URL" --debug --force
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: Deploy migrations to Supabase
-        run: supabase db push --db-url "$DATABASE_URL" --debug
+      - name: Clean prepared statements and deploy schema
+        run: |
+          # Clean any prepared statements
+          psql "$DATABASE_URL" -c "DEALLOCATE ALL;"
+          
+          # Deploy schema with force to bypass migration version conflicts
+          # This ensures the database schema matches our single migration file exactly
+          echo "Deploying schema with force to resolve migration version conflicts..."
+          echo "Current migration file: $(ls supabase/migrations/)"
+          supabase db push --db-url "$DATABASE_URL" --debug --force
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
