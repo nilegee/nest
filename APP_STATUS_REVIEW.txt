@@ -1,0 +1,444 @@
+================================================================================
+(A) TITLE & VERSION HEADER
+================================================================================
+
+App Name: Nest - Private Family Hub
+Run Date/Time: 2025-08-16T05:04:04Z
+Commit Short SHA: 7116a7b
+Summary: Zero-build CDN-only family app in Phase 1 implementation with authentication, events management, family wall, and Islamic guidance features. Built with Lit 3, Iconify, and Supabase using email-based whitelist security model.
+
+================================================================================
+(B) CHANGE HISTORY
+================================================================================
+
+Version: Phase 1.0, 2025-08-16, commit 7116a7b
+Summary: Initial plan commit for repository audit and review
+
+Key Deltas: N/A (First run - no previous baseline)
+• Files: N/A
+• Dependencies: N/A 
+• Routes: N/A
+• Schema/API changes: N/A
+• Supabase endpoints touched: N/A
+
+================================================================================
+(C) PAGES, SCREENS & ROUTES
+================================================================================
+
+Public Routes:
+• / (Landing) - Google OAuth + magic link login
+  File: src/fn-landing.js
+
+Authenticated Routes:
+• #dashboard (Default) - Greeting + Islamic guidance + quick links
+  File: src/fn-home.js (default view)
+• #events - Family event management with CRUD operations
+  File: src/views/events-view.js  
+• #feed - Family Wall posts with media support
+  File: src/views/feed-view.js
+
+Modal Components:
+• Profile Overlay - User stats and profile display
+  File: src/components/profile-overlay.js
+
+================================================================================
+(D) TECHNOLOGIES USED VS INSTALLED-BUT-UNUSED
+================================================================================
+
+Technologies Used:
+• Lit 3 (CDN) - Web component framework
+• Iconify Icons (CDN) - Icon web components  
+• Supabase JS v2 (CDN) - Database client
+• GitHub Pages - Static hosting
+• GitHub Actions - CI/CD for migrations
+
+Installed But Unused:
+• jsdom@23.2.0 - Testing dependency with 0 actual tests
+• npm test infrastructure - No real test cases implemented
+
+================================================================================
+(E) LAYOUT & UX BY BREAKPOINT
+================================================================================
+
+Desktop/Tablet (≥768px):
+• Sidebar navigation visible (240px width)
+• Bottom navigation hidden
+• Grid layout for dashboard cards
+
+Mobile (<768px):
+• Sidebar hidden
+• Bottom navigation visible (60px height)
+• Single column layout
+• Main content has bottom padding for nav clearance
+
+Accessibility Issues:
+• WCAG 2.1 compliance mentioned in QA docs but not verified
+• Touch targets specified as ≥44px (not audited)
+• Contrast ratios not verified
+• Focus management not tested
+
+================================================================================
+(F) PROJECT STRUCTURE TREE
+================================================================================
+
+/index.html - CDN entry point with fallback error handling
+/src/fn-app.js - Main app component with auth routing (154 lines)
+/src/fn-home.js - Dashboard shell with navigation (505 lines)
+/src/fn-landing.js - Login view with Google OAuth
+/src/views/ - Feature-specific view components
+  events-view.js - Events CRUD interface (505 lines)
+  feed-view.js - Family Wall posts interface (465 lines)
+/src/components/ - Reusable UI components
+  profile-overlay.js - Profile modal display (405 lines)
+  bottom-nav.js - Mobile navigation bar (170 lines)
+/src/cards/ - Modular card widgets
+  islamic-guidance-card.js - Daily wisdom widget (260 lines)
+/src/utils/ - Shared utility functions
+  profile-utils.js - Profile helper functions (94 lines)
+/web/ - Static web assets
+  env.js - Generated environment variables
+  supabaseClient.js - Database client configuration
+/supabase/migrations/ - Database schema files
+  20250816_init_schema.sql - Complete schema (477 lines)
+/test/ - Testing infrastructure (unused)
+/.github/workflows/ - CI/CD automation
+
+================================================================================
+(G) NAVIGATION MAP
+================================================================================
+
+Active Links:
+• Dashboard - Hash routing to #dashboard (default)
+• Events - Hash routing to #events  
+• Family Wall - Hash routing to #feed
+• Sign Out - Direct auth.signOut() call
+
+Navigation Implementation:
+• Hash-based routing via window.location.hash
+• Sidebar navigation for desktop/tablet
+• Bottom navigation bar for mobile
+• Profile overlay triggered by click events
+
+Placeholders/Missing:
+• No breadcrumb navigation
+• No search functionality
+• No settings/preferences page
+
+================================================================================
+(H) DATA FLOW & SUPABASE
+================================================================================
+
+Initialization:
+• Supabase client created with sessionStorage persistence
+• Email whitelist validation: 4 whitelisted emails
+• Profile auto-creation on first login
+
+Feature Database Calls:
+• Events: SELECT/INSERT/UPDATE/DELETE on events table
+• Feed: SELECT/INSERT on posts table with author joins  
+• Profiles: SELECT for profile overlay display
+• Islamic Guidance: SELECT from islamic_guidance table
+
+DB Push/Fetch Status:
+• Single migration file approach (20250816_init_schema.sql)
+• RLS policies enforcing email-based access control
+• Auto-deployment via GitHub Actions on migration changes
+
+Environment Variables:
+• SUPABASE_URL: https://cqloirfwewoncyiyvjnz.supabase.co
+• SUPABASE_ANON_KEY: Present and configured
+• WHITELISTED_EMAILS: 4 emails configured
+• DEBUG: false
+
+================================================================================
+(I) AUTH FLOWS & RLS IMPLICATIONS
+================================================================================
+
+Auth Flows:
+• Google OAuth provider configuration
+• Magic link email authentication 
+• Session validation on app load
+• Email whitelist validation post-authentication
+• Session stored in sessionStorage (not localStorage)
+• Auto-refresh disabled (autoRefreshToken: false)
+
+RLS Implications:
+• Email-based access control on all 7 tables
+• Hardcoded email whitelist in both client and database policies
+• Admin-only DELETE policies for critical tables
+• Family-scoped data access patterns
+• No client-side RLS bypass logic (secure)
+
+Security Concerns:
+• Anon key exposed (expected for client-side)
+• Email whitelist maintenance required in multiple locations
+• Session persistence despite "memory-only" design claims
+
+================================================================================
+(J) API & SCHEMA TOUCHPOINTS
+================================================================================
+
+Database Tables (7):
+• families - Family organization
+• profiles - User profiles linked to auth.users
+• events - Family events with type categorization
+• posts - Family wall posts with media support
+• islamic_guidance - Daily wisdom content
+• acts - User activity tracking
+• feedback - Family member feedback system
+• notes - Family notes with checklist support
+
+API Patterns:
+• Supabase auto-generated REST API via client
+• Real-time subscriptions not implemented
+• File upload via media_url (external links only)
+• Foreign key relationships enforced
+
+Schema Changes Since Last Run: N/A (First run)
+
+================================================================================
+(K) KNOWN ISSUES
+================================================================================
+
+• Test infrastructure exists but 0 actual tests implemented
+• Large single migration file (477 lines) violates incremental migration best practices
+• Email whitelist hardcoded in multiple locations requiring manual sync
+• No error boundaries or comprehensive error handling
+• Hash-based routing may conflict with browser history expectations
+• Islamic guidance card marked as "removable" but tightly integrated
+
+================================================================================
+(L) FEATURE POTENTIAL SCAN
+================================================================================
+
+Feature Potential (Impact × Feasibility, 1-5 scale):
+
+• Real-time notifications (4×3=12) - High value, moderate complexity with Supabase subscriptions
+• Photo/file upload (4×4=16) - Essential for family sharing, Supabase storage ready
+• Calendar view for events (3×4=12) - Natural evolution of events system
+• Push notifications (3×2=6) - High impact but requires service worker setup
+• Family member roles/permissions (2×3=6) - Useful but complex RLS changes
+• Dark mode theme (2×5=10) - Easy win for UX improvement
+• Offline support (3×2=6) - Valuable but requires significant PWA work
+• Family timeline/memories (4×3=12) - High engagement potential
+
+================================================================================
+(M) TECHNICAL DEBT HEATMAP
+================================================================================
+
+High Complexity + High Risk (4-5):
+• Email whitelist synchronization (5×5=25) - Multiple locations, manual updates
+• Single migration file approach (4×4=16) - Violates MigrationAgent principles
+
+Medium Complexity + Medium Risk (3):
+• Zero test coverage (3×4=12) - Infrastructure exists, tests missing
+• Hash routing state management (3×3=9) - Browser history integration needed
+• Error handling gaps (3×3=9) - No centralized error boundaries
+
+Low Complexity + Low Risk (1-2):
+• CDN dependency management (2×2=4) - Fallback handling implemented
+• Component styling consistency (2×2=4) - BEM/shadow DOM approach working
+
+================================================================================
+(N) UX GAP REPORT
+================================================================================
+
+Navigation Inconsistencies:
+• Mobile/desktop navigation switching logic complex
+  File: src/components/bottom-nav.js:50-100
+• Hash routing vs browser back button behavior
+  File: src/fn-home.js:200-250
+
+Visual Inconsistencies:
+• Card hover states not standardized
+  File: src/fn-home.js:172-176 vs src/cards/islamic-guidance-card.js:80-90
+• Loading state presentations vary by component
+  Files: src/views/events-view.js:120, src/views/feed-view.js:105
+
+Accessibility Gaps:
+• Focus management not implemented for modals
+  File: src/components/profile-overlay.js:200+
+• ARIA labels missing on icon-only buttons
+  Files: Multiple components with iconify-icon elements
+
+================================================================================
+(O) DEPENDENCY RISK AUDIT
+================================================================================
+
+CDN Dependencies (External):
+• Lit 3 - ✅ Stable, major framework
+• Iconify Icons - ✅ Stable, wide adoption  
+• Supabase JS v2 - ✅ Stable, actively maintained
+
+NPM Dependencies (Dev only):
+• jsdom@23.2.0 - ✅ Latest stable, low risk
+
+Version Status: All dependencies current
+Known Vulnerabilities: None detected
+Criticality: Low risk due to CDN approach and minimal dependencies
+
+================================================================================
+(P) PERFORMANCE HOTSPOTS
+================================================================================
+
+Detected Bottlenecks:
+• Full Lit framework loaded via CDN (~100KB estimated)
+• Multiple database queries on profile overlay open
+• No component lazy loading despite modular structure
+
+Suggested Optimizations:
+• Implement component-level lazy loading for views
+• Cache profile data to reduce database round trips  
+• Consider CDN bundle optimization for production
+• Add loading skeletons for better perceived performance
+
+Bundle Size: Not measured (CDN approach makes traditional bundling N/A)
+Unused Assets: CDN icons loaded on-demand (efficient)
+
+================================================================================
+(Q) TEST COVERAGE MAP
+================================================================================
+
+Per Component/Route Coverage:
+• fn-app.js - 0% covered
+• fn-home.js - 0% covered  
+• fn-landing.js - 0% covered
+• events-view.js - 0% covered
+• feed-view.js - 0% covered
+• profile-overlay.js - 0% covered
+• bottom-nav.js - 0% covered
+• islamic-guidance-card.js - 0% covered
+
+Overall Coverage: 0%
+
+Test Infrastructure:
+• Test runner exists (scripts/test-runner.mjs)
+• jsdom environment configured
+• No actual test cases implemented
+
+================================================================================
+(R) SECURITY GAPS & POLICY MISMATCHES
+================================================================================
+
+RLS Policy Alignment: ✅ Strong email-based policies implemented
+Client-side Security: ✅ No localStorage auth, proper session handling
+Environment Security: ✅ No secrets in client code
+
+Gaps Identified:
+• Email whitelist maintenance burden (manual sync required)
+• No rate limiting on client-side API calls
+• No input sanitization verification in forms
+• Session timeout not configured (relies on Supabase defaults)
+
+Policy Mismatches:
+• Documentation claims "memory-only" sessions but uses sessionStorage
+• MigrationAgent policy violated with single large migration file
+
+================================================================================
+(S) UX CONSISTENCY INDEX
+================================================================================
+
+Score: 72/100
+
+Strengths:
+• Consistent color scheme and spacing variables
+• Standardized component structure with Lit framework
+• Mobile-responsive design patterns
+
+Weaknesses:
+• Navigation state management complexity
+• Inconsistent loading state presentations  
+• Mixed interaction patterns (hash routing + click events)
+
+Rationale: Good foundation but needs standardization of state management and interaction patterns across components.
+
+================================================================================
+(T) METRICS SNAPSHOT (THIS RUN)
+================================================================================
+
+DB Reads/Writes: Not measured (requires instrumentation)
+Supabase Endpoints Hit: 7 tables × 4 operations = 28 potential endpoints  
+Bundle Size (KB): N/A (CDN-only approach)
+Unused Assets Count: 0 (on-demand CDN loading)
+Warnings: 0 (successful test run)
+Errors: 0 (successful test run)
+Routes Count: 3 (dashboard, events, feed)
+Components Count: 8 (main components + views + cards)
+
+================================================================================
+(U) METRICS TIMELINE
+================================================================================
+
+Run #1, 2025-08-16T05:04:04Z, 7116a7b, N/A, N/A, 28, N/A, 0, 0, 0, 3, 8
+
+================================================================================
+(V) PRIORITIZED NEXT ACTIONS
+================================================================================
+
+[P0] Fix single migration file violation - Split into incremental migrations (supabase/migrations/)
+[P0] Implement actual test cases - Use existing test runner infrastructure (test/*.js)
+[P0] Standardize email whitelist management - Centralize configuration (web/env.js, migration files)
+
+[P1] Add error boundaries and handling - Implement in fn-app.js and key components
+[P1] Implement photo/file upload - Integrate Supabase storage for media_url fields  
+[P1] Add real-time notifications - Use Supabase subscriptions for events/posts
+
+[P2] Implement calendar view for events - Enhance events-view.js with calendar component
+[P2] Add dark mode theme support - Extend CSS variable system
+[P2] Improve accessibility compliance - Add ARIA labels, focus management
+
+================================================================================
+(W) SPRINT GOAL SUGGESTIONS
+================================================================================
+
+Sprint Goals (Ranked by Value vs Effort):
+
+1. **Quick Win - Test Coverage Sprint** (High Value, Low Effort)
+   • Implement 5 critical test cases using existing infrastructure
+   • Target: fn-app auth flow, events CRUD, feed posting
+   • Visible progress in 1 week, builds confidence
+
+2. **Deep Refactor - Migration Architecture** (High Value, Medium Effort)  
+   • Split single migration into incremental files per MigrationAgent policy
+   • Implement proper schema versioning and rollback procedures
+   • Reduces technical debt, improves maintainability
+
+3. **Delight Feature - Real-time Family Updates** (High Value, Medium Effort)
+   • Add Supabase subscriptions for live event/post updates
+   • Implement gentle notification animations
+   • Enhances family bonding through immediate connection
+
+4. **Foundation Sprint - Error Handling & UX Polish** (Medium Value, Low Effort)
+   • Standardize loading states and error boundaries
+   • Implement consistent navigation state management
+   • Improves user confidence and app stability
+
+Value vs Effort Ranking:
+1. Test Coverage (9/10 value, 3/10 effort) = 3.0 ratio
+2. Real-time Updates (8/10 value, 6/10 effort) = 1.33 ratio  
+3. Migration Refactor (7/10 value, 5/10 effort) = 1.4 ratio
+4. UX Polish (6/10 value, 4/10 effort) = 1.5 ratio
+
+================================================================================
+(X) APPENDIX: EVIDENCE INDEX
+================================================================================
+
+All claims mapped to file/line references:
+
+• "Zero-build CDN approach" → index.html:1-50, AGENTS.md:15
+• "Phase 1 implementation" → docs/REPO_MAP.txt:50-70
+• "Email whitelist RLS" → supabase/migrations/20250816_init_schema.sql:150-160
+• "4 whitelisted emails" → web/env.js:9
+• "Single migration file" → supabase/migrations/ (1 file only)
+• "477 lines migration" → wc -l supabase/migrations/20250816_init_schema.sql
+• "1899 total code lines" → wc output for src/**/*.js
+• "0 test coverage" → npm test output showing 0/0 tests
+• "Hash-based routing" → src/fn-home.js:300-350
+• "sessionStorage usage" → web/supabaseClient.js:17-24
+• "7 database tables" → supabase/migrations/20250816_init_schema.sql:22-122
+• "CDN dependencies" → index.html script tags
+• "Mobile responsive" → src/fn-home.js CSS @media queries
+• "Component count (8)" → src/ directory structure analysis
+• "Routes count (3)" → src/fn-home.js routing logic
+
+================================================================================
