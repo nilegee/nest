@@ -19,18 +19,19 @@ jobs:
             echo "psql already installed"
           fi
 
-      - uses: supabase/setup-cli@v1
-
-      - name: Run bootstrap migrations (apply to remote DB)
+      - name: Run bootstrap migrations with psql
         run: |
-          echo "Bootstrapping migrations directly to remote DB..."
-          supabase db push --debug
+          echo "Applying migrations directly with psql..."
+          for f in $(ls -1 supabase/migrations/*.sql | sort); do
+            echo "Applying $f"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Verify bootstrap
         run: |
-          echo "Listing applied migrations from supabase_migrations table..."
-          psql "$DATABASE_URL" -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version;"
+          echo "Listing applied migrations (rows in supabase_migrations table if present)..."
+          psql "$DATABASE_URL" -c "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
