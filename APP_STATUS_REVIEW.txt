@@ -99,7 +99,7 @@ Accessibility Issues:
   env.js - Generated environment variables
   supabaseClient.js - Database client configuration
 /supabase/migrations/ - Database schema files
-  20250816_init_schema.sql - Complete schema (477 lines)
+  20250816000000_init_schema.sql - Complete schema (477 lines)
 /test/ - Testing infrastructure (unused)
 /.github/workflows/ - CI/CD automation
 
@@ -140,7 +140,7 @@ Feature Database Calls:
 • Islamic Guidance: SELECT from islamic_guidance table
 
 DB Push/Fetch Status:
-• Single migration file approach (20250816_init_schema.sql)
+• Single migration file approach (20250816000000_init_schema.sql)
 • RLS policies enforcing email-based access control
 • Auto-deployment via GitHub Actions on migration changes
 
@@ -427,15 +427,15 @@ All claims mapped to file/line references:
 
 • "Zero-build CDN approach" → index.html:1-50, AGENTS.md:15
 • "Phase 1 implementation" → docs/REPO_MAP.txt:50-70
-• "Email whitelist RLS" → supabase/migrations/20250816_init_schema.sql:150-160
+• "Email whitelist RLS" → supabase/migrations/20250816000000_init_schema.sql:150-160
 • "4 whitelisted emails" → web/env.js:9
 • "Single migration file" → supabase/migrations/ (1 file only)
-• "477 lines migration" → wc -l supabase/migrations/20250816_init_schema.sql
+• "477 lines migration" → wc -l supabase/migrations/20250816000000_init_schema.sql
 • "1899 total code lines" → wc output for src/**/*.js
 • "0 test coverage" → npm test output showing 0/0 tests
 • "Hash-based routing" → src/fn-home.js:300-350
 • "sessionStorage usage" → web/supabaseClient.js:17-24
-• "7 database tables" → supabase/migrations/20250816_init_schema.sql:22-122
+• "7 database tables" → supabase/migrations/20250816000000_init_schema.sql:22-122
 • "CDN dependencies" → index.html script tags
 • "Mobile responsive" → src/fn-home.js CSS @media queries
 • "Component count (8)" → src/ directory structure analysis
