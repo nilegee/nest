@@ -9,8 +9,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Ensure PostgreSQL client
+        run: |
+          if ! command -v psql > /dev/null; then
+            echo "psql not found, installing..."
+            sudo apt-get -o Dpkg::Lock::Timeout=60 update
+            sudo apt-get -o Dpkg::Lock::Timeout=60 install -y postgresql-client
+          else
+            echo "psql already installed"
+          fi
 
       - uses: supabase/setup-cli@v1
 
@@ -22,6 +29,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Verify bootstrap
-        run: psql "$DATABASE_URL" -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version;"
+        run: |
+          echo "Listing applied migrations from supabase_migrations table..."
+          psql "$DATABASE_URL" -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version;"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
