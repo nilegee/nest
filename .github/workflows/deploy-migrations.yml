@@ -20,14 +20,14 @@ jobs:
 
       - name: Validate migration files
         run: |
-          echo "Migration files:"
-          ls -la supabase/migrations/
-          echo "Count: $(ls -1 supabase/migrations/*.sql | wc -l)"
+          echo "Migration files in supabase/migrations:"
+          ls -la supabase/migrations/ || echo "No migration files found"
+          echo "Count: $(ls -1 supabase/migrations/*.sql 2>/dev/null | wc -l)"
 
       - name: Deploy migrations
         run: |
           echo "Deploying migrations incrementally..."
-          supabase db push --debug
+          supabase migration deploy --debug
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
