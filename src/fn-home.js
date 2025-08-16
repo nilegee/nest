@@ -116,51 +116,106 @@ export class FnHome extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    
+    // Add debugging for session
+    console.log('fn-home connected with session:', {
+      hasSession: !!this.session,
+      hasUser: !!this.session?.user,
+      userEmail: this.session?.user?.email,
+      userId: this.session?.user?.id
+    });
+    
     await this.init();
   }
 
   async init() {
+    console.log('Initializing fn-home with session:', this.session?.user?.email);
     await this.createProfile();
-    await this.loadPosts();
+    
+    // Only load posts after profile is created
+    if (this.profile) {
+      await this.loadPosts();
+    }
   }
 
   async createProfile() {
     if (!this.session?.user) return;
+    
+    console.log('Creating profile for user:', {
+      id: this.session.user.id,
+      email: this.session.user.email,
+      user_metadata: this.session.user.user_metadata
+    });
+    
     try {
-      let { data: profile } = await supabase
+      // First, try to get existing profile
+      const { data: profile, error: selectError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', this.session.user.id)
         .single();
 
-      if (!profile) {
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: this.session.user.id,
-            email: this.session.user.email,
-            full_name: this.session.user.user_metadata?.full_name || this.session.user.email.split('@')[0],
-            family_id: '00000000-0000-0000-0000-000000000001'
-          })
-          .select()
-          .single();
-        profile = newProfile;
+      if (selectError) {
+        console.log('Profile select error:', selectError);
+        
+        // If profile doesn't exist (PGRST116) or access denied, try to create one
+        if (selectError.code === 'PGRST116' || selectError.message?.includes('row-level security')) {
+          console.log('No existing profile found, creating new one...');
+          
+          const { data: newProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: this.session.user.id,
+              email: this.session.user.email,
+              full_name: this.session.user.user_metadata?.full_name || this.session.user.email.split('@')[0],
+              family_id: '00000000-0000-0000-0000-000000000001'
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('Profile insert error:', insertError);
+            return;
+          }
+          
+          console.log('Profile created successfully:', newProfile);
+          this.profile = newProfile;
+        }
+      } else if (profile) {
+        console.log('Existing profile found:', profile);
+        this.profile = profile;
       }
-      this.profile = profile;
     } catch (error) {
-      console.error('Profile error:', error);
+      console.error('Profile creation failed:', error);
     }
   }
 
   async loadPosts() {
+    // Only load posts if we have a profile
+    if (!this.profile) {
+      console.log('No profile available, skipping posts load');
+      return;
+    }
+    
     try {
-      const { data: posts } = await supabase
+      console.log('Loading posts for family:', this.profile.family_id);
+      
+      const { data: posts, error } = await supabase
         .from('posts')
         .select('*, author:profiles(full_name)')
         .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Posts query error:', error);
+        this.posts = [];
+        return;
+      }
+      
+      console.log('Posts loaded successfully:', posts?.length || 0, 'posts');
       this.posts = posts || [];
     } catch (error) {
       console.error('Posts error:', error);
+      this.posts = [];
     }
   }
 
