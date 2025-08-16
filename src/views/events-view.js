@@ -6,6 +6,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../../web/supabaseClient.js';
 import { getUserFamilyId } from '../utils/profile-utils.js';
+import { WHITELISTED_EMAILS } from '../../web/env.js';
 
 export class EventsView extends LitElement {
   static properties = {
@@ -243,14 +244,22 @@ export class EventsView extends LitElement {
         return;
       }
 
+      // Additional check: ensure user is whitelisted before making requests
+      if (!WHITELISTED_EMAILS.includes(session.user.email)) {
+        this.events = [];
+        this.loading = false;
+        return;
+      }
+
       const { data, error } = await supabase
         .from('events')
         .select('*')
         .order('event_date', { ascending: true });
 
       if (error) {
-        // Handle 403 errors gracefully (RLS policy issues)
+        // Handle 403 errors gracefully (should not happen for whitelisted users with proper RLS)
         if (error.code === 'PGRST301' || error.message?.includes('403')) {
+          console.warn('Events access denied despite whitelisted user - possible RLS policy issue');
           this.events = [];
           this.loading = false;
           return;
