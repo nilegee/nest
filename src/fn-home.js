@@ -14,6 +14,7 @@ import './views/feed-view.js';
 import './components/profile-overlay.js';
 import './components/bottom-nav.js';
 import './cards/islamic-guidance-card.js';
+import './cards/upcoming-events-card.js';
 
 export class FnHome extends LitElement {
   static properties = {
@@ -155,6 +156,11 @@ export class FnHome extends LitElement {
     }
     
     .guidance-section {
+      grid-column: span 2;
+      margin-bottom: 32px;
+    }
+    
+    .events-section {
       grid-column: span 2;
       margin-bottom: 32px;
     }
@@ -388,6 +394,10 @@ export class FnHome extends LitElement {
             
             <div class="guidance-section">
               <islamic-guidance-card></islamic-guidance-card>
+            </div>
+            
+            <div class="events-section">
+              <upcoming-events-card></upcoming-events-card>
             </div>
             
             <div class="dashboard-grid">

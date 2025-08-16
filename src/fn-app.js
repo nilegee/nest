@@ -43,7 +43,6 @@ export class FnApp extends LitElement {
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Session error:', error);
         this.error = error.message;
         this.loading = false;
         return;
@@ -70,7 +69,6 @@ export class FnApp extends LitElement {
       });
 
     } catch (error) {
-      console.error('Auth initialization failed:', error);
       this.error = 'Failed to initialize authentication';
       this.loading = false;
     }
@@ -91,7 +89,7 @@ export class FnApp extends LitElement {
         try {
           await supabase.auth.signOut();
         } catch (signOutError) {
-          console.error('Sign out error:', signOutError);
+          // Silent sign out error handling
         }
         
         this.session = null;
