@@ -261,6 +261,14 @@ export class FeedView extends LitElement {
         return;
       }
 
+      // Double-check that we have a valid session token before making requests
+      if (!session.access_token) {
+        this.posts = [];
+        this.profiles = [];
+        this.loading = false;
+        return;
+      }
+
       // Load posts with author information
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
@@ -271,9 +279,8 @@ export class FeedView extends LitElement {
         .order('created_at', { ascending: false });
 
       if (postsError) {
-        // Handle 403 errors gracefully (should not happen for whitelisted users with proper RLS)
-        if (postsError.code === 'PGRST301' || postsError.message?.includes('403')) {
-          console.warn('Posts access denied despite whitelisted user - possible RLS policy issue');
+        // Handle any authorization errors gracefully - don't log to console
+        if (postsError.code === 'PGRST301' || postsError.message?.includes('403') || postsError.message?.includes('Forbidden')) {
           this.posts = [];
         } else {
           throw postsError;
@@ -288,9 +295,8 @@ export class FeedView extends LitElement {
         .select('*');
 
       if (profilesError) {
-        // Handle 403 errors gracefully (should not happen for whitelisted users with proper RLS)
-        if (profilesError.code === 'PGRST301' || profilesError.message?.includes('403')) {
-          console.warn('Profiles access denied despite whitelisted user - possible RLS policy issue');
+        // Handle any authorization errors gracefully - don't log to console
+        if (profilesError.code === 'PGRST301' || profilesError.message?.includes('403') || profilesError.message?.includes('Forbidden')) {
           this.profiles = [];
         } else {
           throw profilesError;
