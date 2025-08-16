@@ -134,9 +134,11 @@ async function runAllTests() {
   console.log('========================\n');
   
   const testSuites = [
-    // Tests removed as part of Day 0 reset
-    // { path: 'src/cards/birthdays-test.js', function: 'runBirthdayTests' },
-    // { path: 'src/ui-contract-test.js', function: 'runUIContractTests' }
+    { path: 'test/auth-flow-test.js', function: 'runAuthFlowTests' },
+    { path: 'test/events-crud-test.js', function: 'runEventsCrudTests' },
+    { path: 'test/feed-posting-test.js', function: 'runFeedPostingTests' },
+    { path: 'test/profile-overlay-test.js', function: 'runProfileOverlayTests' },
+    { path: 'test/islamic-guidance-test.js', function: 'runIslamicGuidanceTests' }
   ];
   
   const results = [];
