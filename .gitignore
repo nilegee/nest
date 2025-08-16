@@ -23,3 +23,6 @@ Thumbs.db
 # Downloaded archives and temporary files
 *.tar.gz
 *.zip
+
+# Test files
+test-responsive.html

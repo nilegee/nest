@@ -12,6 +12,7 @@ import { ensureUserProfile } from './utils/profile-utils.js';
 import './views/events-view.js';
 import './views/feed-view.js';
 import './components/profile-overlay.js';
+import './components/bottom-nav.js';
 import './cards/islamic-guidance-card.js';
 
 export class FnHome extends LitElement {
@@ -53,6 +54,19 @@ export class FnHome extends LitElement {
       flex: 1;
       margin-left: 240px;
       padding: 20px;
+      padding-bottom: 20px; /* Default for desktop */
+    }
+
+    /* Mobile responsive styles */
+    @media (max-width: 767px) {
+      .sidebar {
+        display: none;
+      }
+
+      .main-content {
+        margin-left: 0;
+        padding-bottom: 80px; /* Space for bottom navigation */
+      }
     }
     
     .nav-item {
@@ -230,6 +244,9 @@ export class FnHome extends LitElement {
     
     // Listen for profile overlay events
     this.addEventListener('show-profile', this.handleShowProfile.bind(this));
+    
+    // Listen for bottom navigation events
+    this.addEventListener('navigate', this.handleBottomNavigation.bind(this));
   }
 
   async connectedCallback() {
@@ -263,6 +280,14 @@ export class FnHome extends LitElement {
     if (overlay) {
       overlay.show(event.detail.userId);
     }
+  }
+
+  /**
+   * Handle bottom navigation events
+   */
+  handleBottomNavigation(event) {
+    const view = event.detail.view;
+    this.navigateTo(view);
   }
 
   /**
@@ -345,6 +370,9 @@ export class FnHome extends LitElement {
           ${this.renderCurrentView(userName)}
         </main>
       </div>
+      
+      <!-- Bottom Navigation for Mobile -->
+      <bottom-nav .currentView=${this.currentView}></bottom-nav>
       
       <!-- Profile Overlay -->
       <profile-overlay></profile-overlay>
