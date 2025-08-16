@@ -1,0 +1,27 @@
+name: Bootstrap Supabase Migrations
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - uses: supabase/setup-cli@v1
+
+      - name: Run bootstrap migrations (force remote apply)
+        run: |
+          echo "Bootstrapping migrations directly to remote DB..."
+          supabase migration deploy --db-url "$DATABASE_URL" --debug
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Verify bootstrap
+        run: psql "$DATABASE_URL" -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version;"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
