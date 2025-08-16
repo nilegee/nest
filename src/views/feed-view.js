@@ -6,6 +6,7 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../../web/supabaseClient.js';
 import { getUserFamilyId } from '../utils/profile-utils.js';
+import { WHITELISTED_EMAILS } from '../../web/env.js';
 
 export class FeedView extends LitElement {
   static properties = {
@@ -252,6 +253,14 @@ export class FeedView extends LitElement {
         return;
       }
 
+      // Additional check: ensure user is whitelisted before making requests
+      if (!WHITELISTED_EMAILS.includes(session.user.email)) {
+        this.posts = [];
+        this.profiles = [];
+        this.loading = false;
+        return;
+      }
+
       // Load posts with author information
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
@@ -262,8 +271,9 @@ export class FeedView extends LitElement {
         .order('created_at', { ascending: false });
 
       if (postsError) {
-        // Handle 403 errors gracefully (RLS policy issues)
+        // Handle 403 errors gracefully (should not happen for whitelisted users with proper RLS)
         if (postsError.code === 'PGRST301' || postsError.message?.includes('403')) {
+          console.warn('Posts access denied despite whitelisted user - possible RLS policy issue');
           this.posts = [];
         } else {
           throw postsError;
@@ -278,8 +288,9 @@ export class FeedView extends LitElement {
         .select('*');
 
       if (profilesError) {
-        // Handle 403 errors gracefully (RLS policy issues)
+        // Handle 403 errors gracefully (should not happen for whitelisted users with proper RLS)
         if (profilesError.code === 'PGRST301' || profilesError.message?.includes('403')) {
+          console.warn('Profiles access denied despite whitelisted user - possible RLS policy issue');
           this.profiles = [];
         } else {
           throw profilesError;

@@ -3,6 +3,16 @@
  */
 
 import { supabase } from '../../web/supabaseClient.js';
+import { WHITELISTED_EMAILS } from '../../web/env.js';
+
+/**
+ * Check if user has valid authentication and is whitelisted
+ * @param {string} userEmail - User email from auth
+ * @returns {boolean} - True if user should have access
+ */
+function isUserAuthorized(userEmail) {
+  return userEmail && WHITELISTED_EMAILS.includes(userEmail);
+}
 
 /**
  * Ensure user profile exists, create if not found
@@ -14,7 +24,18 @@ import { supabase } from '../../web/supabaseClient.js';
 export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
   if (!userId || !userEmail) return null;
   
+  // Early check: if user is not whitelisted, don't make any requests
+  if (!isUserAuthorized(userEmail)) {
+    return null;
+  }
+  
   try {
+    // Verify current session before making requests
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session?.user?.id || session.user.id !== userId) {
+      return null;
+    }
+    
     // Try to get existing profile
     const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
@@ -22,8 +43,9 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
       .eq('user_id', userId)
       .single();
     
-    // Handle 403 errors gracefully
+    // Handle 403 errors gracefully - should not happen for whitelisted users with proper RLS
     if (profileError && (profileError.code === 'PGRST301' || profileError.message?.includes('403'))) {
+      console.warn('Profile access denied despite whitelisted user - possible RLS policy issue');
       return null;
     }
     
@@ -41,8 +63,9 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
       .eq('name', 'G Family')
       .single();
     
-    // Handle 403 errors gracefully for family lookup
+    // Handle 403 errors gracefully for family lookup - should not happen for whitelisted users with proper RLS
     if (familyError && (familyError.code === 'PGRST301' || familyError.message?.includes('403'))) {
+      console.warn('Family access denied despite whitelisted user - possible RLS policy issue');
       return null;
     }
     
@@ -54,8 +77,9 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
         .select('id')
         .single();
       
-      // Handle 403 errors gracefully for family creation
+      // Handle 403 errors gracefully for family creation - should not happen for whitelisted users with proper RLS
       if (createFamilyError && (createFamilyError.code === 'PGRST301' || createFamilyError.message?.includes('403'))) {
+        console.warn('Family creation denied despite whitelisted user - possible RLS policy issue');
         return null;
       }
       
@@ -81,8 +105,9 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
       .select('*')
       .single();
 
-    // Handle 403 errors gracefully for profile creation
+    // Handle 403 errors gracefully for profile creation - should not happen for whitelisted users with proper RLS
     if (createProfileError && (createProfileError.code === 'PGRST301' || createProfileError.message?.includes('403'))) {
+      console.warn('Profile creation denied despite whitelisted user - possible RLS policy issue');
       return null;
     }
 
