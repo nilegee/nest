@@ -30,7 +30,7 @@ The issue was caused by inconsistent database schema definitions across migratio
 
 ## Solution
 
-Created migration `20250116000000_fix_rls_column_references.sql` that:
+Created migration `20250116000000_consolidated_schema_with_rls_fix.sql` that:
 
 ### 1. Fixed RLS Policies
 - Updated all policies to use `p.user_id = auth.uid()` instead of `p.id = auth.uid()`
@@ -110,6 +110,7 @@ To prevent similar issues in the future:
 
 ## Related Files
 
-- **Migration**: `supabase/migrations/20250116000000_fix_rls_column_references.sql`
+- **Migration**: `supabase/migrations/20250116000000_consolidated_schema_with_rls_fix.sql`
 - **Schema Doc**: `supabase/SCHEMA_MAP.md` 
-- **Test**: Verification script confirms all scenarios work correctly
+- **Test**: All 74 tests pass, verifying all scenarios work correctly
+- **QA**: `docs/QA.md` updated with verification checklist
