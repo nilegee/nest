@@ -157,6 +157,15 @@ export class IslamicGuidanceCard extends LitElement {
 
   async loadGuidance() {
     try {
+      // Check authentication state before making API calls
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        // Use fallback content when not authenticated
+        this.guidance = this.fallbackGuidance;
+        this.loading = false;
+        return;
+      }
+
       // Try to get user's family to fetch family-specific guidance
       const { data: user } = await supabase.auth.getUser();
       let familyId = null;
@@ -181,7 +190,10 @@ export class IslamicGuidanceCard extends LitElement {
           .order('created_at', { ascending: false })
           .limit(1);
 
-        if (!error && data && data.length > 0) {
+        // Handle 403 errors gracefully (RLS policy issues)
+        if (error && (error.code === 'PGRST301' || error.message?.includes('403'))) {
+          // Skip family-specific search and continue to general search
+        } else if (!error && data && data.length > 0) {
           guidanceData = data[0];
         }
       }
@@ -194,7 +206,11 @@ export class IslamicGuidanceCard extends LitElement {
           .order('created_at', { ascending: false })
           .limit(1);
 
-        if (!error && data && data.length > 0) {
+        // Handle 403 errors gracefully (RLS policy issues)
+        if (error && (error.code === 'PGRST301' || error.message?.includes('403'))) {
+          // Use fallback content
+          guidanceData = null;
+        } else if (!error && data && data.length > 0) {
           guidanceData = data[0];
         }
       }
@@ -204,7 +220,6 @@ export class IslamicGuidanceCard extends LitElement {
       
     } catch (error) {
       this.guidance = this.fallbackGuidance;
-      this.error = 'Failed to load guidance';
     } finally {
       this.loading = false;
     }

@@ -243,6 +243,15 @@ export class FeedView extends LitElement {
 
   async loadData() {
     try {
+      // Check authentication state before making API calls
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        this.posts = [];
+        this.profiles = [];
+        this.loading = false;
+        return;
+      }
+
       // Load posts with author information
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
@@ -252,16 +261,32 @@ export class FeedView extends LitElement {
         `)
         .order('created_at', { ascending: false });
 
-      if (postsError) throw postsError;
-      this.posts = postsData || [];
+      if (postsError) {
+        // Handle 403 errors gracefully (RLS policy issues)
+        if (postsError.code === 'PGRST301' || postsError.message?.includes('403')) {
+          this.posts = [];
+        } else {
+          throw postsError;
+        }
+      } else {
+        this.posts = postsData || [];
+      }
 
       // Load all family profiles for profile overlay functionality
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*');
 
-      if (profilesError) throw profilesError;
-      this.profiles = profilesData || [];
+      if (profilesError) {
+        // Handle 403 errors gracefully (RLS policy issues)
+        if (profilesError.code === 'PGRST301' || profilesError.message?.includes('403')) {
+          this.profiles = [];
+        } else {
+          throw profilesError;
+        }
+      } else {
+        this.profiles = profilesData || [];
+      }
 
     } catch (error) {
       // Silent error handling - show empty state

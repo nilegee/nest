@@ -138,13 +138,29 @@ export class UpcomingEventsCard extends LitElement {
 
   async loadEvents() {
     try {
+      // Check authentication state before making API calls
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        this.events = [];
+        this.loading = false;
+        return;
+      }
+
       const { data, error } = await supabase
         .from('events')
         .select('*')
         .in('type', ['birthday', 'anniversary'])
         .order('event_date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        // Handle 403 errors gracefully (RLS policy issues)
+        if (error.code === 'PGRST301' || error.message?.includes('403')) {
+          this.events = [];
+          this.loading = false;
+          return;
+        }
+        throw error;
+      }
       this.events = data || [];
     } catch (error) {
       // Silent error handling
