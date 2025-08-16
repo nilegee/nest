@@ -39,7 +39,7 @@ A private, psychology-informed family hub built with Lit 3, Supabase, and zero-b
 /web/env.js              # Environment configuration (auto-generated)
 /web/supabaseClient.js   # Database client setup (session config)
 /test/                   # Comprehensive test suite (74 tests, 100% pass rate)
-/supabase/migrations/    # Single migration file (consolidated schema)
+/supabase/migrations/    # Incremental migration files (8 files)
 ```
 
 ## 🧪 Testing
@@ -105,6 +105,54 @@ The system uses centralized email whitelist management:
 - **Email-based whitelist** controls access to the application
 - **Memory-only sessions** - No localStorage for auth tokens
 - **Supabase anon key** is public; RLS is the security boundary
+
+## 🗄️ Database Migration Strategy
+
+The project uses **incremental Supabase migrations** for proper change tracking and rollback capabilities.
+
+### Migration Files Structure
+
+```
+supabase/migrations/
+├── 20250816000000_extensions_and_types.sql    # Extensions and custom types
+├── 20250816000100_core_tables.sql             # Families and profiles
+├── 20250816000200_events_system.sql           # Events management
+├── 20250816000300_posts_and_feed.sql          # Family wall/feed
+├── 20250816000400_islamic_guidance.sql        # Islamic guidance content  
+├── 20250816000500_supporting_tables.sql       # Acts, feedback, notes
+├── 20250816000600_rls_policies.sql            # Row Level Security policies
+└── 20250816000700_indexes_and_performance.sql # Database indexes
+```
+
+### Local Development Commands
+
+```bash
+# Sync with remote database state
+supabase db pull --db-url "$DATABASE_URL"
+
+# Repair migration history mismatches
+supabase migration repair --status reverted <timestamp> --db-url "$DATABASE_URL"
+
+# Apply migrations incrementally
+supabase db push --db-url "$DATABASE_URL" --debug
+
+# Check migration status
+supabase migration list --db-url "$DATABASE_URL"
+```
+
+### CI/CD Deployment
+
+The GitHub workflow automatically:
+1. **Pulls** remote migration state to sync local/remote history
+2. **Repairs** migration status to resolve any conflicts
+3. **Pushes** incremental migrations using standard Supabase tooling
+4. **Verifies** deployment success
+
+This approach provides:
+- ✅ **Granular rollback** capability per migration
+- ✅ **Clear change history** for easier debugging
+- ✅ **Better team collaboration** with isolated migrations
+- ✅ **Standard Supabase practices** alignment
 
 ## 🎯 Development Guidelines
 

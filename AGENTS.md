@@ -121,18 +121,18 @@ The same fragment is used both in desktop sidebar and mobile inline.
 ## MigrationAgent – Database Schema Standards
 
 MigrationAgent ensures all future Supabase migrations follow these rules:  
-- **SINGLE MIGRATION FILE POLICY**: At any time, there must be exactly ONE migration file in `supabase/migrations/`
-- **ALL CHANGES IN ONE FILE**: All schema changes must be appended to the single migration file, never split across multiple files
-- **DELETE OLD MIGRATIONS**: Any previous migration files must be deleted before adding a new schema change
-- **Current Status**: `20250816000000_init_schema.sql` (397 lines) - compliant with single file policy
-- **Self-contained**: create tables if not exist before altering  
-- **RLS first-class**: every family-scoped table has RLS enabled and policies applied immediately  
-- **Readable**: structured sections for create, alter, RLS, indexes  
-- **No temp/probe migrations**  
+- **INCREMENTAL MIGRATION POLICY**: Each schema change creates a new timestamped migration file in `supabase/migrations/`
+- **LOGICAL MIGRATION GROUPING**: Related changes (e.g., table + indexes) should be grouped in single migrations when possible
+- **TIMESTAMPED FILENAMES**: All migration files use format `YYYYMMDDHHMM_descriptive_name.sql`
+- **Current Status**: 8 incremental migration files covering extensions, tables, policies, and indexes
+- **Self-contained**: each migration can run independently and includes dependency comments
+- **RLS first-class**: security policies are applied in dedicated migration after table creation  
+- **Readable**: clear migration headers with version, dependencies, and rollback information
+- **No temp/probe migrations**: only production-ready migrations in the main directory
 - **Never manual changes** in Supabase UI, always via migrations  
-- **Commit-and-push only**: All future schema updates must follow the "commit-and-push only" process to trigger the single automated workflow
+- **Standard workflow**: Uses `supabase db pull`, `migration repair`, and `db push` for proper migration tracking
 
-MigrationAgent works with other agents to ensure schema integrity, security, and minimal clutter in `/supabase/migrations/` following the ONE MIGRATION FILE, ONE WORKFLOW principle.
+MigrationAgent works with other agents to ensure schema integrity, security, and proper migration history tracking in `/supabase/migrations/` following the INCREMENTAL MIGRATION, STANDARD WORKFLOW principle.
 
 ## Security notes
 - Anon key is public; RLS is the real gate. Keep policies tight.
