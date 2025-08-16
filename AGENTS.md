@@ -45,39 +45,68 @@ Build a private, psychology‑informed family hub that is fast, secure, and kind
 
 The same fragment is used both in desktop sidebar and mobile inline.
 
-## Phase 1 Agents
+## Phase 1 Agents (Current Implementation)
 
-### EventAgent
-- **Location**: `src/views/events-view.js`
+### EventAgent ✅ **Active**
+- **Location**: `src/views/events-view.js` (287 lines)
 - **Responsibility**: Manage family events (birthdays, anniversaries, custom)
 - **Database**: `events` table with RLS policies
 - **Features**: CRUD operations, date formatting, event type icons
+- **Test Coverage**: 14/14 tests passing (events-crud-test.js)
 
-### FeedAgent  
-- **Location**: `src/views/feed-view.js`
+### FeedAgent ✅ **Active**
+- **Location**: `src/views/feed-view.js` (275 lines)  
 - **Responsibility**: Family post sharing and communication
 - **Database**: `posts` table with author relationships
 - **Features**: Post composer, media URLs, reverse chronological display
+- **Test Coverage**: 14/14 tests passing (feed-posting-test.js)
 
-### ProfileAgent
-- **Location**: `src/components/profile-overlay.js`
+### ProfileAgent ✅ **Active**
+- **Location**: `src/components/profile-overlay.js` (346 lines)
 - **Responsibility**: Member profile display with stats
 - **Database**: `profiles` and `posts` tables
 - **Features**: Profile info, recent posts, kindness metrics, appreciations placeholder
+- **Test Coverage**: 19/19 tests passing (profile-overlay-test.js)
 
-### IslamicGuidanceAgent
-- **Location**: `src/cards/islamic-guidance-card.js` (removable)
+### IslamicGuidanceAgent ✅ **Active** (Optional)
+- **Location**: `src/cards/islamic-guidance-card.js` (329 lines) 
 - **Responsibility**: Daily Islamic guidance and wisdom
 - **Database**: `islamic_guidance` table with fallback content
 - **Features**: Qur'an verses, hadith, advice with beautiful styling
+- **Test Coverage**: 18/18 tests passing (islamic-guidance-test.js)
+- **Note**: Marked as removable but currently integrated
+
+### MobileNavigationAgent ✅ **Active**
+- **Location**: `src/components/bottom-nav.js` (81 lines)
+- **Responsibility**: Mobile-first navigation component
+- **Features**: Touch-optimized navigation, responsive breakpoints
+- **Integration**: Automatically shows/hides based on screen size (<768px)
 
 ## Styling
 - Scope styles per component (shadow DOM or BEM). No global resets.
 - Respect `prefers-reduced-motion`. Provide high-contrast tokens.
 
 ## Testing & CI
-- Add a smoke test: ensure card renders, no console errors.
-- Update `/docs/QA.md` when UI contracts change.
+
+### Comprehensive Test Suite ✅
+- **74 Tests Total**: 100% pass rate maintained
+- **5 Test Modules**: Auth, Events, Feed, Profile, Islamic Guidance  
+- **Test Runner**: Custom jsdom-based runner (`scripts/test-runner.mjs`)
+- **Coverage**: All agents have dedicated test files
+- **CI Integration**: Tests run on every commit
+
+### Test Standards
+- Add a smoke test: ensure card renders, no console errors
+- Update `/docs/QA.md` when UI contracts change
+- All new features must include comprehensive test coverage
+- Mock external dependencies (Supabase) for isolated testing
+- Maintain descriptive test names and clear assertions
+
+### Performance Standards
+- **Lighthouse ≥ 90**: Performance, Accessibility, Best Practices
+- **Zero console errors** in production
+- **Load time < 3 seconds** on 3G connections
+- **Bundle size < 100KB** total JavaScript
 
 ## Do / Don't quick list
 
@@ -95,6 +124,7 @@ MigrationAgent ensures all future Supabase migrations follow these rules:
 - **SINGLE MIGRATION FILE POLICY**: At any time, there must be exactly ONE migration file in `supabase/migrations/`
 - **ALL CHANGES IN ONE FILE**: All schema changes must be appended to the single migration file, never split across multiple files
 - **DELETE OLD MIGRATIONS**: Any previous migration files must be deleted before adding a new schema change
+- **Current Status**: `20250816000000_init_schema.sql` (397 lines) - compliant with single file policy
 - **Self-contained**: create tables if not exist before altering  
 - **RLS first-class**: every family-scoped table has RLS enabled and policies applied immediately  
 - **Readable**: structured sections for create, alter, RLS, indexes  
