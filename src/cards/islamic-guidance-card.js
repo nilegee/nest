@@ -203,7 +203,6 @@ export class IslamicGuidanceCard extends LitElement {
       this.guidance = guidanceData || this.fallbackGuidance;
       
     } catch (error) {
-      console.error('Error loading Islamic guidance:', error);
       this.guidance = this.fallbackGuidance;
       this.error = 'Failed to load guidance';
     } finally {

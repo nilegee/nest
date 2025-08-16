@@ -49,9 +49,6 @@ export class FnApp extends LitElement {
       }
 
       // Handle initial session
-      if (session?.user?.email) {
-        console.log('Initial session found:', session.user.email);
-      }
       await this.handleSessionChange(session);
 
       // Listen for auth changes - subscribe only once
@@ -60,10 +57,8 @@ export class FnApp extends LitElement {
           // Initial session is already handled above, skip to avoid duplicate processing
           return;
         } else if (event === "SIGNED_IN") {
-          console.log("User signed in:", session?.user?.email);
           await this.handleSessionChange(session);
         } else if (event === "SIGNED_OUT") {
-          console.log("User signed out");
           await this.handleSessionChange(null);
         }
       });

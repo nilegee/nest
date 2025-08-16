@@ -303,11 +303,9 @@ export class FnHome extends LitElement {
       if (profile) {
         this.userProfile = profile;
       } else {
-        console.log('Failed to create or load user profile');
         this.userProfile = null;
       }
     } catch (error) {
-      console.log('Error loading profile:', error);
       this.userProfile = null;
     }
   }
@@ -319,7 +317,7 @@ export class FnHome extends LitElement {
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.error('Sign out failed:', error);
+      // Silent sign out error handling
     }
   }
 

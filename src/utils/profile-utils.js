@@ -27,7 +27,6 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
     }
     
     // Profile doesn't exist, create it
-    console.log('Creating profile for user:', userEmail);
     
     // First, ensure the default family exists
     let familyId;
@@ -46,7 +45,6 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
         .single();
       
       if (createFamilyError) {
-        console.error('Error creating family:', createFamilyError);
         return null;
       }
       familyId = newFamily.id;
@@ -69,7 +67,6 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
       .single();
 
     if (createProfileError) {
-      console.error('Error creating profile:', createProfileError);
       return null;
     }
 
@@ -77,7 +74,6 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
     return newProfile;
     
   } catch (error) {
-    console.error('Error in ensureUserProfile:', error);
     return null;
   }
 }
