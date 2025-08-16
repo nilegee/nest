@@ -1,21 +1,15 @@
 /**
- * Landing page component
+ * Landing page component - Simplified
  * Handles user authentication with Google OAuth and Magic Link
  */
 
 import { LitElement, html, css } from 'https://esm.sh/lit@3';
 import { supabase } from '../web/supabaseClient.js';
 
-/**
- * Get the appropriate redirect URL based on current environment
- */
 function getRedirectUrl() {
-  // For local development
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return `${window.location.origin}`;
   }
-  
-  // For GitHub Pages or other production environments
   return `${window.location.origin}${window.location.pathname}`;
 }
 
@@ -37,7 +31,7 @@ export class FnLanding extends LitElement {
       padding: 20px;
     }
     
-    .landing-container {
+    .container {
       background: white;
       border-radius: 16px;
       padding: 48px 32px;
@@ -55,63 +49,52 @@ export class FnLanding extends LitElement {
     .title {
       font-size: 1.875rem;
       font-weight: 700;
-      color: var(--text);
+      color: #1f2937;
       margin: 0 0 8px 0;
     }
     
     .subtitle {
-      color: var(--text-light);
+      color: #6b7280;
       margin: 0 0 32px 0;
-      font-size: 1rem;
+      line-height: 1.5;
     }
     
-    .auth-section {
-      margin-bottom: 24px;
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
     
-    .auth-button {
+    .google-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 12px;
-      width: 100%;
-      padding: 12px 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: white;
-      color: var(--text);
-      font-size: 1rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 12px;
-    }
-    
-    .auth-button:hover {
-      background: var(--secondary);
-      border-color: var(--primary);
-    }
-    
-    .auth-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    
-    .auth-button.primary {
-      background: var(--primary);
+      background: #4285f4;
       color: white;
-      border-color: var(--primary);
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
     }
     
-    .auth-button.primary:hover {
-      background: var(--primary-dark);
+    .google-btn:hover {
+      background: #3367d6;
+    }
+    
+    .google-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
     }
     
     .divider {
       display: flex;
       align-items: center;
-      margin: 24px 0;
-      color: var(--text-light);
-      font-size: 0.875rem;
+      margin: 20px 0;
+      color: #9ca3af;
+      font-size: 14px;
     }
     
     .divider::before,
@@ -119,50 +102,65 @@ export class FnLanding extends LitElement {
       content: '';
       flex: 1;
       height: 1px;
-      background: var(--border);
+      background: #e5e7eb;
     }
     
     .divider span {
-      padding: 0 16px;
-    }
-    
-    .email-form {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      margin: 0 16px;
     }
     
     .email-input {
-      padding: 12px 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      font-size: 1rem;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 16px;
+      width: 100%;
     }
     
     .email-input:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: #6366f1;
       box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+    }
+    
+    .magic-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .magic-btn:hover {
+      background: #4f46e5;
+    }
+    
+    .magic-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
     }
     
     .error {
       background: #fef2f2;
       border: 1px solid #fecaca;
-      color: var(--error);
+      color: #dc2626;
       padding: 12px;
-      border-radius: var(--radius);
+      border-radius: 8px;
       margin-bottom: 16px;
-      font-size: 0.875rem;
+      font-size: 14px;
     }
     
     .success {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: var(--success);
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      color: #0369a1;
       padding: 12px;
-      border-radius: var(--radius);
+      border-radius: 8px;
       margin-bottom: 16px;
-      font-size: 0.875rem;
+      font-size: 14px;
     }
     
     .spinner {
@@ -175,18 +173,7 @@ export class FnLanding extends LitElement {
     }
     
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .family-note {
-      margin-top: 32px;
-      padding: 16px;
-      background: #fef3c7;
-      border: 1px solid #fcd34d;
-      border-radius: var(--radius);
-      color: #92400e;
-      font-size: 0.875rem;
+      to { transform: rotate(360deg); }
     }
   `;
 
@@ -198,100 +185,77 @@ export class FnLanding extends LitElement {
     this.email = '';
   }
 
-  /**
-   * Handle Google OAuth login
-   */
-  async handleGoogleLogin() {
+  async signInWithGoogle() {
     try {
       this.loading = true;
       this.error = '';
-      
-      const redirectUrl = getRedirectUrl();
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl
+          redirectTo: getRedirectUrl()
         }
       });
       
       if (error) throw error;
-      
     } catch (error) {
+      console.error('Google sign in error:', error);
       this.error = error.message || 'Failed to sign in with Google';
+    } finally {
       this.loading = false;
     }
   }
 
-  /**
-   * Handle magic link email submission
-   */
-  async handleMagicLink(e) {
-    e.preventDefault();
-    
+  async signInWithMagicLink() {
     if (!this.email.trim()) {
       this.error = 'Please enter your email address';
       return;
     }
-    
+
     try {
       this.loading = true;
       this.error = '';
       
-      const redirectUrl = getRedirectUrl();
-      
       const { error } = await supabase.auth.signInWithOtp({
         email: this.email.trim(),
         options: {
-          emailRedirectTo: redirectUrl
+          emailRedirectTo: getRedirectUrl()
         }
       });
       
       if (error) throw error;
       
       this.magicLinkSent = true;
-      this.loading = false;
-      
     } catch (error) {
+      console.error('Magic link error:', error);
       this.error = error.message || 'Failed to send magic link';
+    } finally {
       this.loading = false;
     }
   }
 
-  /**
-   * Handle email input change
-   */
-  handleEmailChange(e) {
-    this.email = e.target.value;
-    this.error = '';
-  }
-
   render() {
     return html`
-      <div class="landing-container">
+      <div class="container">
         <div class="logo">🏠</div>
         <h1 class="title">FamilyNest</h1>
-        <p class="subtitle">Welcome to your family's private space</p>
+        <p class="subtitle">Your private family hub</p>
         
         ${this.error ? html`
-          <div class="error">
-            ${this.error}
-          </div>
+          <div class="error">${this.error}</div>
         ` : ''}
         
         ${this.magicLinkSent ? html`
           <div class="success">
-            <strong>Check your email!</strong><br>
-            We've sent a magic link to ${this.email}
+            <p><strong>Check your email!</strong></p>
+            <p>We sent a magic link to ${this.email}</p>
           </div>
-        ` : ''}
-        
-        ${!this.magicLinkSent ? html`
-          <div class="auth-section">
+        ` : html`
+          <div class="auth-form">
             <button 
-              class="auth-button primary"
+              class="google-btn" 
+              @click=${this.signInWithGoogle}
               ?disabled=${this.loading}
-              @click=${this.handleGoogleLogin}
             >
               ${this.loading ? html`<div class="spinner"></div>` : html`
                 <iconify-icon icon="logos:google-icon"></iconify-icon>
@@ -303,44 +267,30 @@ export class FnLanding extends LitElement {
               <span>or</span>
             </div>
             
-            <form class="email-form" @submit=${this.handleMagicLink}>
-              <input
-                type="email"
-                class="email-input"
-                placeholder="Enter your email address"
-                .value=${this.email}
-                @input=${this.handleEmailChange}
-                ?disabled=${this.loading}
-              >
-              <button 
-                type="submit" 
-                class="auth-button"
-                ?disabled=${this.loading || !this.email.trim()}
-              >
-                ${this.loading ? html`<div class="spinner"></div>` : html`
-                  <iconify-icon icon="material-symbols:mail-outline"></iconify-icon>
-                  Send Magic Link
-                `}
-              </button>
-            </form>
+            <input
+              type="email"
+              class="email-input"
+              placeholder="Enter your email"
+              .value=${this.email}
+              @input=${(e) => this.email = e.target.value}
+              @keydown=${(e) => e.key === 'Enter' && this.signInWithMagicLink()}
+              ?disabled=${this.loading}
+            />
+            
+            <button 
+              class="magic-btn"
+              @click=${this.signInWithMagicLink}
+              ?disabled=${this.loading || !this.email.trim()}
+            >
+              ${this.loading ? html`<div class="spinner"></div>` : 'Send Magic Link'}
+            </button>
           </div>
-        ` : html`
-          <button 
-            class="auth-button"
-            @click=${() => { this.magicLinkSent = false; this.email = ''; }}
-          >
-            <iconify-icon icon="material-symbols:arrow-back"></iconify-icon>
-            Try Different Email
-          </button>
         `}
-        
-        <div class="family-note">
-          <iconify-icon icon="material-symbols:info-outline"></iconify-icon>
-          Access is limited to family members only
-        </div>
       </div>
     `;
   }
 }
 
-customElements.define('fn-landing', FnLanding);
+if (!customElements.get('fn-landing')) {
+  customElements.define('fn-landing', FnLanding);
+}
