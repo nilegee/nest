@@ -42,7 +42,16 @@
 - [ ] Page load times remain acceptable (< 3 seconds)
 - [ ] No new JavaScript errors in browser console
 - [ ] All interactive elements work (buttons, forms, navigation)
-- [ ] Mobile responsiveness maintained
+- [ ] **Mobile responsiveness maintained**
+  - [ ] Desktop/tablet (≥768px): Sidebar visible, bottom nav hidden
+  - [ ] Mobile (<768px): Sidebar hidden, bottom nav visible at bottom
+  - [ ] Bottom nav has proper tap targets (≥44px)
+  - [ ] Bottom nav navigation works correctly
+  - [ ] Main content has proper bottom padding on mobile
+- [ ] **Authentication logging cleaned up**
+  - [ ] No duplicate console logs on sign-in
+  - [ ] INITIAL_SESSION and SIGNED_IN events handled distinctly
+  - [ ] No repeated calls to loadHomeView
 
 ## Browser Testing Matrix
 

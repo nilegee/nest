@@ -54,8 +54,19 @@ export class FnApp extends LitElement {
 
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        await this.handleSessionChange(session);
+        if (event === "INITIAL_SESSION") {
+          console.log("Initial session:", session?.user?.email);
+          // Initial session is already handled above, no need to process again
+        } else if (event === "SIGNED_IN") {
+          console.log("User signed in:", session?.user?.email);
+          await this.handleSessionChange(session);
+        } else if (event === "SIGNED_OUT") {
+          console.log("User signed out");
+          await this.handleSessionChange(null);
+        } else {
+          console.log('Auth state changed:', event, session?.user?.email);
+          await this.handleSessionChange(session);
+        }
       });
 
     } catch (error) {
