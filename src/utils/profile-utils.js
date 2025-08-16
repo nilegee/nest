@@ -22,6 +22,11 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
       .eq('user_id', userId)
       .single();
     
+    // Handle 403 errors gracefully
+    if (profileError && (profileError.code === 'PGRST301' || profileError.message?.includes('403'))) {
+      return null;
+    }
+    
     if (!profileError && existingProfile) {
       return existingProfile;
     }
@@ -36,6 +41,11 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
       .eq('name', 'G Family')
       .single();
     
+    // Handle 403 errors gracefully for family lookup
+    if (familyError && (familyError.code === 'PGRST301' || familyError.message?.includes('403'))) {
+      return null;
+    }
+    
     if (familyError || !familyData) {
       // Create default family if it doesn't exist
       const { data: newFamily, error: createFamilyError } = await supabase
@@ -43,6 +53,11 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
         .insert([{ name: 'G Family' }])
         .select('id')
         .single();
+      
+      // Handle 403 errors gracefully for family creation
+      if (createFamilyError && (createFamilyError.code === 'PGRST301' || createFamilyError.message?.includes('403'))) {
+        return null;
+      }
       
       if (createFamilyError) {
         return null;
@@ -66,11 +81,15 @@ export async function ensureUserProfile(userId, userEmail, userMetadata = {}) {
       .select('*')
       .single();
 
+    // Handle 403 errors gracefully for profile creation
+    if (createProfileError && (createProfileError.code === 'PGRST301' || createProfileError.message?.includes('403'))) {
+      return null;
+    }
+
     if (createProfileError) {
       return null;
     }
 
-    console.log('Profile created successfully');
     return newProfile;
     
   } catch (error) {
