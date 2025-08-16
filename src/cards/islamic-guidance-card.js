@@ -206,8 +206,8 @@ export class IslamicGuidanceCard extends LitElement {
           .order('created_at', { ascending: false })
           .limit(1);
 
-        // Handle 403 errors gracefully (RLS policy issues)
-        if (error && (error.code === 'PGRST301' || error.message?.includes('403'))) {
+        // Handle any authorization errors gracefully - don't log to console
+        if (error && (error.code === 'PGRST301' || error.message?.includes('403') || error.message?.includes('Forbidden'))) {
           // Use fallback content
           guidanceData = null;
         } else if (!error && data && data.length > 0) {

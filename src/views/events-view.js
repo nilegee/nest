@@ -251,15 +251,21 @@ export class EventsView extends LitElement {
         return;
       }
 
+      // Double-check that we have a valid session token before making requests
+      if (!session.access_token) {
+        this.events = [];
+        this.loading = false;
+        return;
+      }
+
       const { data, error } = await supabase
         .from('events')
         .select('*')
         .order('event_date', { ascending: true });
 
       if (error) {
-        // Handle 403 errors gracefully (should not happen for whitelisted users with proper RLS)
-        if (error.code === 'PGRST301' || error.message?.includes('403')) {
-          console.warn('Events access denied despite whitelisted user - possible RLS policy issue');
+        // Handle any authorization errors gracefully - don't log to console
+        if (error.code === 'PGRST301' || error.message?.includes('403') || error.message?.includes('Forbidden')) {
           this.events = [];
           this.loading = false;
           return;
@@ -268,7 +274,7 @@ export class EventsView extends LitElement {
       }
       this.events = data || [];
     } catch (error) {
-      // Silent error handling - show empty state instead
+      // Silent error handling - show empty state instead of console errors
       this.events = [];
     } finally {
       this.loading = false;
