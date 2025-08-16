@@ -207,7 +207,6 @@ export class FnLanding extends LitElement {
       this.error = '';
       
       const redirectUrl = getRedirectUrl();
-      console.log('OAuth redirect URL:', redirectUrl);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -219,7 +218,6 @@ export class FnLanding extends LitElement {
       if (error) throw error;
       
     } catch (error) {
-      console.error('Google login error:', error);
       this.error = error.message || 'Failed to sign in with Google';
       this.loading = false;
     }
@@ -241,7 +239,6 @@ export class FnLanding extends LitElement {
       this.error = '';
       
       const redirectUrl = getRedirectUrl();
-      console.log('Magic link redirect URL:', redirectUrl);
       
       const { error } = await supabase.auth.signInWithOtp({
         email: this.email.trim(),
@@ -256,7 +253,6 @@ export class FnLanding extends LitElement {
       this.loading = false;
       
     } catch (error) {
-      console.error('Magic link error:', error);
       this.error = error.message || 'Failed to send magic link';
       this.loading = false;
     }

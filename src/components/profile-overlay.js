@@ -271,7 +271,7 @@ export class ProfileOverlay extends LitElement {
       this.recentPosts = postsData || [];
 
     } catch (error) {
-      console.error('Error loading profile data:', error);
+      // Silent error handling - profile data loading failed
     } finally {
       this.loading = false;
     }

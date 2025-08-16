@@ -43,16 +43,12 @@ export class FnApp extends LitElement {
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Session error:', error);
         this.error = error.message;
         this.loading = false;
         return;
       }
 
       // Handle initial session
-      if (session?.user?.email) {
-        console.log('Initial session found:', session.user.email);
-      }
       await this.handleSessionChange(session);
 
       // Listen for auth changes - subscribe only once
@@ -61,16 +57,13 @@ export class FnApp extends LitElement {
           // Initial session is already handled above, skip to avoid duplicate processing
           return;
         } else if (event === "SIGNED_IN") {
-          console.log("User signed in:", session?.user?.email);
           await this.handleSessionChange(session);
         } else if (event === "SIGNED_OUT") {
-          console.log("User signed out");
           await this.handleSessionChange(null);
         }
       });
 
     } catch (error) {
-      console.error('Auth initialization failed:', error);
       this.error = 'Failed to initialize authentication';
       this.loading = false;
     }
@@ -91,7 +84,7 @@ export class FnApp extends LitElement {
         try {
           await supabase.auth.signOut();
         } catch (signOutError) {
-          console.error('Sign out error:', signOutError);
+          // Silent sign out error handling
         }
         
         this.session = null;

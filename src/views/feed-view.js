@@ -264,7 +264,9 @@ export class FeedView extends LitElement {
       this.profiles = profilesData || [];
 
     } catch (error) {
-      console.error('Error loading feed data:', error);
+      // Silent error handling - show empty state
+      this.posts = [];
+      this.profiles = [];
     } finally {
       this.loading = false;
     }
@@ -320,7 +322,7 @@ export class FeedView extends LitElement {
       this.handleHideComposer();
       this.loadData(); // Reload posts
     } catch (error) {
-      console.error('Error creating post:', error);
+      // Silent error handling - post creation failed
     }
   }
 

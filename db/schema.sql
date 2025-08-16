@@ -66,11 +66,19 @@ create table public.events (
   family_id uuid not null references public.families(id) on delete cascade,
   owner_id uuid not null references public.profiles(user_id) on delete cascade,
   title text not null,
+  event_date date not null default current_date,
+  type text check (type in ('birthday','anniversary','custom')) default 'custom',
   location text,
-  starts_at timestamptz not null,
+  starts_at timestamptz,
   ends_at timestamptz,
   meta jsonb default '{}',
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  description text,
+  is_recurring boolean default false,
+  recurrence_pattern jsonb,
+  notification_settings jsonb default '{"email": true, "push": false}',
+  attendees jsonb default '[]',
+  updated_at timestamptz default now()
 );
 
 create table public.posts (

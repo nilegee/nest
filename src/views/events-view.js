@@ -200,6 +200,13 @@ export class EventsView extends LitElement {
       color: var(--text-light, #64748b);
     }
 
+    .form-help {
+      display: block;
+      font-size: 12px;
+      color: var(--text-light, #64748b);
+      margin-top: 4px;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .add-button,
       .button {
@@ -217,7 +224,6 @@ export class EventsView extends LitElement {
       title: '',
       event_date: '',
       type: 'custom',
-      category: 'custom',
       recurrence: 'none'
     };
   }
@@ -237,7 +243,8 @@ export class EventsView extends LitElement {
       if (error) throw error;
       this.events = data || [];
     } catch (error) {
-      console.error('Error loading events:', error);
+      // Silent error handling - show empty state instead
+      this.events = [];
     } finally {
       this.loading = false;
     }
@@ -253,7 +260,6 @@ export class EventsView extends LitElement {
       title: '',
       event_date: '',
       type: 'custom',
-      category: 'custom',
       recurrence: 'none'
     };
   }
@@ -280,19 +286,37 @@ export class EventsView extends LitElement {
         throw new Error('Unable to determine family. Please try again.');
       }
 
+      // Prepare event data based on type
+      const eventData = {
+        title: this.newEvent.title,
+        event_date: this.newEvent.event_date,
+        type: this.newEvent.type,
+        family_id: familyId,
+        owner_id: user.user.id
+      };
+
+      // Set recurrence automatically for birthdays and anniversaries
+      if (this.newEvent.type === 'birthday' || this.newEvent.type === 'anniversary') {
+        eventData.is_recurring = true;
+        eventData.recurrence_pattern = { frequency: 'yearly' };
+      } else {
+        eventData.is_recurring = this.newEvent.recurrence === 'annual';
+        if (eventData.is_recurring) {
+          eventData.recurrence_pattern = { frequency: 'yearly' };
+        }
+      }
+
       const { error } = await supabase
         .from('events')
-        .insert([{
-          ...this.newEvent,
-          family_id: familyId
-        }]);
+        .insert([eventData]);
 
       if (error) throw error;
 
       this.handleCloseForm();
       this.loadEvents();
     } catch (error) {
-      console.error('Error creating event:', error);
+      // Silent error handling - could show user-friendly error message in UI
+      // For now, just don't create the event
     }
   }
 
@@ -304,8 +328,8 @@ export class EventsView extends LitElement {
     });
   }
 
-  getEventIcon(category) {
-    switch (category) {
+  getEventIcon(type) {
+    switch (type) {
       case 'birthday': return 'mdi:cake';
       case 'anniversary': return 'mdi:heart';
       case 'travel': return 'mdi:airplane';
@@ -352,7 +376,7 @@ export class EventsView extends LitElement {
     const days = this.getDaysUntil(event.event_date);
     const countdownText = this.getCountdownText(days);
     
-    switch (event.category) {
+    switch (event.type) {
       case 'birthday': {
         // Try to calculate age if we can extract it from the title or meta
         const match = event.title.match(/(\w+).*(\d+)/);
@@ -403,12 +427,12 @@ export class EventsView extends LitElement {
           ${this.events.map(event => html`
             <div class="event-card">
               <div class="event-header">
-                <iconify-icon icon="${this.getEventIcon(event.category || event.type)}" class="event-icon"></iconify-icon>
+                <iconify-icon icon="${this.getEventIcon(event.type)}" class="event-icon"></iconify-icon>
                 <div style="flex: 1;">
                   <div class="event-title">${this.getEventDisplayText(event)}</div>
                   <div class="event-date">${this.formatDate(event.event_date)}</div>
                 </div>
-                <span class="event-type">${event.category || event.type}</span>
+                <span class="event-type">${event.type}</span>
               </div>
             </div>
           `)}
@@ -426,64 +450,116 @@ export class EventsView extends LitElement {
             </div>
 
             <form @submit=${this.handleSubmit}>
+              <!-- Step 1: Event Type Selection -->
               <div class="form-group">
-                <label class="form-label" for="title">Event Title</label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  class="form-input"
-                  .value=${this.newEvent.title}
-                  @input=${this.handleInputChange}
-                  required
-                >
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="event_date">Date</label>
-                <input
-                  type="date"
-                  id="event_date"
-                  name="event_date"
-                  class="form-input"
-                  .value=${this.newEvent.event_date}
-                  @input=${this.handleInputChange}
-                  required
-                >
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="category">Category</label>
+                <label class="form-label" for="type">Event Type</label>
                 <select
-                  id="category"
-                  name="category"
+                  id="type"
+                  name="type"
                   class="form-select"
-                  .value=${this.newEvent.category}
+                  .value=${this.newEvent.type}
                   @change=${this.handleInputChange}
                 >
                   <option value="custom">Custom Event</option>
                   <option value="birthday">🎂 Birthday</option>
                   <option value="anniversary">💕 Anniversary</option>
-                  <option value="travel">✈️ Travel</option>
-                  <option value="appointment">🏥 Appointment</option>
-                  <option value="restaurant">🍽️ Restaurant</option>
-                  <option value="play_area">🎪 Play Area</option>
                 </select>
               </div>
 
-              <div class="form-group">
-                <label class="form-label" for="recurrence">Recurrence</label>
-                <select
-                  id="recurrence"
-                  name="recurrence"
-                  class="form-select"
-                  .value=${this.newEvent.recurrence}
-                  @change=${this.handleInputChange}
-                >
-                  <option value="none">One-time event</option>
-                  <option value="annual">Annual (repeats yearly)</option>
-                </select>
-              </div>
+              <!-- Step 2: Adaptive Fields Based on Type -->
+              ${this.newEvent.type === 'birthday' ? html`
+                <div class="form-group">
+                  <label class="form-label" for="title">Person's Name</label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    class="form-input"
+                    .value=${this.newEvent.title}
+                    @input=${this.handleInputChange}
+                    placeholder="e.g., Sarah's Birthday"
+                    required
+                  >
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="event_date">Date of Birth</label>
+                  <input
+                    type="date"
+                    id="event_date"
+                    name="event_date"
+                    class="form-input"
+                    .value=${this.newEvent.event_date}
+                    @input=${this.handleInputChange}
+                    required
+                  >
+                  <small class="form-help">Birthday will automatically repeat yearly</small>
+                </div>
+              ` : this.newEvent.type === 'anniversary' ? html`
+                <div class="form-group">
+                  <label class="form-label" for="title">Anniversary Title</label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    class="form-input"
+                    .value=${this.newEvent.title}
+                    @input=${this.handleInputChange}
+                    placeholder="e.g., Wedding Anniversary"
+                    required
+                  >
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="event_date">Anniversary Date</label>
+                  <input
+                    type="date"
+                    id="event_date"
+                    name="event_date"
+                    class="form-input"
+                    .value=${this.newEvent.event_date}
+                    @input=${this.handleInputChange}
+                    required
+                  >
+                  <small class="form-help">Anniversary will automatically repeat yearly</small>
+                </div>
+              ` : html`
+                <div class="form-group">
+                  <label class="form-label" for="title">Event Title</label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    class="form-input"
+                    .value=${this.newEvent.title}
+                    @input=${this.handleInputChange}
+                    required
+                  >
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="event_date">Date</label>
+                  <input
+                    type="date"
+                    id="event_date"
+                    name="event_date"
+                    class="form-input"
+                    .value=${this.newEvent.event_date}
+                    @input=${this.handleInputChange}
+                    required
+                  >
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="recurrence">Recurrence</label>
+                  <select
+                    id="recurrence"
+                    name="recurrence"
+                    class="form-select"
+                    .value=${this.newEvent.recurrence}
+                    @change=${this.handleInputChange}
+                  >
+                    <option value="none">One-time event</option>
+                    <option value="annual">Annual (repeats yearly)</option>
+                  </select>
+                </div>
+              `}
 
               <div class="form-actions">
                 <button type="button" class="button button-secondary" @click=${this.handleCloseForm}>
