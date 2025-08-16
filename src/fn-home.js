@@ -376,10 +376,14 @@ export class FnHome extends LitElement {
   renderCurrentView(userName) {
     switch (this.currentView) {
       case 'events':
-        return html`<events-view></events-view>`;
+        return this.userProfile
+          ? html`<events-view></events-view>`
+          : null;
       
       case 'feed':
-        return html`<feed-view></feed-view>`;
+        return this.userProfile
+          ? html`<feed-view></feed-view>`
+          : null;
         
       case 'dashboard':
       default:
@@ -389,15 +393,19 @@ export class FnHome extends LitElement {
               <h1 class="greeting">Welcome ${userName}!</h1>
               <p class="subtitle">Your family dashboard is ready</p>
             </div>
-            
-            <div class="guidance-section">
-              <islamic-guidance-card></islamic-guidance-card>
-            </div>
-            
-            <div class="events-section">
-              <upcoming-events-card></upcoming-events-card>
-            </div>
-            
+
+            ${this.userProfile
+              ? html`
+                  <div class="guidance-section">
+                    <islamic-guidance-card></islamic-guidance-card>
+                  </div>
+
+                  <div class="events-section">
+                    <upcoming-events-card></upcoming-events-card>
+                  </div>
+                `
+              : null}
+
             <div class="dashboard-grid">
               <div class="quick-link-card" @click=${() => this.navigateTo('events')}>
                 <iconify-icon icon="material-symbols:event-add" class="card-icon"></iconify-icon>
