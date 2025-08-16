@@ -58,3 +58,58 @@ If schema changes are needed in the future:
 3. The `--force` flag will ensure the database matches the updated schema
 
 This approach follows the MigrationAgent "commit-and-push only" principle while avoiding migration version tracking complexities.
+
+## Alternative: Standard Incremental Migration Approach
+
+### Current vs. Standard Supabase Practices
+
+**Current Single-File Approach (MigrationAgent Policy):**
+- ✅ Atomic schema deployment
+- ✅ Single source of truth
+- ✅ Simplified management
+- ❌ No granular rollback capability
+- ❌ Harder to track individual changes
+- ❌ Can conflict with Supabase's migration tracking
+
+**Standard Incremental Approach:**
+- ✅ Granular rollback capability
+- ✅ Clear change history
+- ✅ Better team collaboration
+- ✅ Standard Supabase practices
+- ❌ More complex migration management
+- ❌ Potential for partial schema states
+
+### If Switching to Incremental Migrations
+
+Should the team decide to adopt standard Supabase migration practices:
+
+1. **Break down the single migration** into logical incremental files:
+   ```
+   supabase/migrations/
+   ├── 20250816000000_extensions_and_types.sql
+   ├── 20250816000100_core_tables.sql
+   ├── 20250816000200_events_system.sql
+   ├── 20250816000300_posts_and_feed.sql
+   ├── 20250816000400_islamic_guidance.sql
+   ├── 20250816000500_supporting_tables.sql
+   ├── 20250816000600_rls_policies.sql
+   └── 20250816000700_indexes_and_functions.sql
+   ```
+
+2. **Update workflow** to use standard migration deployment:
+   ```yaml
+   - name: Deploy migrations
+     run: supabase db push --db-url "$DATABASE_URL" --debug
+   ```
+
+3. **Update MigrationAgent policy** in AGENTS.md to support incremental migrations
+
+4. **Benefits of switching:**
+   - Individual migrations can be rolled back
+   - Easier to review specific schema changes
+   - Better alignment with Supabase best practices
+   - Clearer audit trail for schema evolution
+
+### Recommendation
+
+The current single-file approach with force deployment **resolves the immediate issue** and maintains the established MigrationAgent policy. Consider the incremental approach for future projects or if the team wants to adopt standard Supabase practices.
