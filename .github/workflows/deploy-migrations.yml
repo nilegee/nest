@@ -24,8 +24,14 @@ jobs:
 
       - name: Sync local and remote migration history
         run: |
+          echo "Cleaning any existing prepared statements..."
+          psql "$DATABASE_URL" -c "DEALLOCATE ALL;" || echo "No prepared statements to clean"
+          
           echo "Pulling remote migration state to sync with local..."
           supabase db pull --db-url "$DATABASE_URL" --debug || echo "Pull completed with warnings (expected)"
+          
+          echo "Cleaning prepared statements after pull..."
+          psql "$DATABASE_URL" -c "DEALLOCATE ALL;" || echo "No prepared statements to clean"
           
           echo "Checking for migration history mismatches..."
           # Get the latest migration timestamp from our local files
@@ -35,11 +41,17 @@ jobs:
           # Repair migration history if needed
           echo "Repairing migration status to ensure consistency..."
           supabase migration repair --status reverted $LATEST_LOCAL --db-url "$DATABASE_URL" || echo "Repair completed"
+          
+          echo "Cleaning prepared statements after repair..."
+          psql "$DATABASE_URL" -c "DEALLOCATE ALL;" || echo "No prepared statements to clean"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Deploy incremental migrations
         run: |
+          echo "Cleaning prepared statements before deployment..."
+          psql "$DATABASE_URL" -c "DEALLOCATE ALL;" || echo "No prepared statements to clean"
+          
           echo "Deploying incremental migrations..."
           echo "Migration files to deploy:"
           ls -la supabase/migrations/*.sql
