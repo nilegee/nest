@@ -138,7 +138,8 @@ async function runAllTests() {
     { path: 'test/events-crud-test.js', function: 'runEventsCrudTests' },
     { path: 'test/feed-posting-test.js', function: 'runFeedPostingTests' },
     { path: 'test/profile-overlay-test.js', function: 'runProfileOverlayTests' },
-    { path: 'test/islamic-guidance-test.js', function: 'runIslamicGuidanceTests' }
+    { path: 'test/islamic-guidance-test.js', function: 'runIslamicGuidanceTests' },
+    { path: 'test/rls-403-comprehensive-test.js', function: 'runRLS403ComprehensiveTests' }
   ];
   
   const results = [];
