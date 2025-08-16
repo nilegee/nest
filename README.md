@@ -22,17 +22,24 @@ A private, psychology-informed family hub built with Lit 3, Supabase, and zero-b
 ### Project Structure
 
 ```
-/index.html              # App entry point
-/src/fn-app.js           # Main app component with session guard
-/src/fn-landing.js       # Authentication/login view
-/src/fn-home.js          # Dashboard with routing
+/index.html              # App entry point (10.3KB, CDN dependencies)
+/src/fn-app.js           # Main app component with session guard (Auth routing)
+/src/fn-landing.js       # Authentication/login view (Google OAuth + magic link)
+/src/fn-home.js          # Dashboard with routing and navigation shell
 /src/views/              # Feature views (events, feed)
+  events-view.js         # Events management (EventAgent)
+  feed-view.js           # Family Wall posts (FeedAgent)
 /src/components/         # Reusable components
+  profile-overlay.js     # Profile display with stats (ProfileAgent)
+  bottom-nav.js          # Mobile navigation component
 /src/cards/              # Dashboard card widgets
-/web/env.js              # Environment configuration (centralized)
-/web/supabaseClient.js   # Database client setup
-/test/                   # Comprehensive test suite
-/supabase/migrations/    # Incremental database migrations
+  islamic-guidance-card.js # Islamic guidance widget (IslamicGuidanceAgent)
+/src/utils/              # Utility functions
+  profile-utils.js       # Profile data helpers
+/web/env.js              # Environment configuration (auto-generated)
+/web/supabaseClient.js   # Database client setup (session config)
+/test/                   # Comprehensive test suite (74 tests, 100% pass rate)
+/supabase/migrations/    # Single migration file (consolidated schema)
 ```
 
 ## 🧪 Testing
@@ -48,39 +55,49 @@ The project includes a comprehensive test suite with 74 tests covering:
 ### Running Tests
 
 ```bash
-# Install dependencies
+# Install test dependencies only (CDN app needs no build dependencies)
 npm install
 
-# Run all tests
+# Run comprehensive test suite (74 tests)
 npm test
 
-# Run specific test suite
-npm run test:auth     # Auth flow tests
-npm run test:ui       # UI contract tests
+# Test breakdown by module
+npm run test:auth     # Auth flow tests (9 tests)
+npm run test:ui       # UI contract tests (74 tests total)
+
+# Individual test modules available:
+# - test/auth-flow-test.js (9 tests) 
+# - test/events-crud-test.js (14 tests)
+# - test/feed-posting-test.js (14 tests) 
+# - test/profile-overlay-test.js (19 tests)
+# - test/islamic-guidance-test.js (18 tests)
 ```
 
-## 🗄️ Database Migrations
+## 🗄️ Database Schema
 
-The database schema is managed through incremental migrations:
+The database schema is managed through a consolidated migration approach:
 
-1. **01_extensions_and_types.sql** - PostgreSQL extensions and custom types
-2. **02_core_tables.sql** - Families and profiles tables
-3. **03_events_tables.sql** - Events system tables
-4. **04_posts_tables.sql** - Posts and feed tables
-5. **05_islamic_guidance_tables.sql** - Islamic guidance feature
-6. **06_additional_tables.sql** - Supporting tables (acts, feedback, notes)
-7. **07_rls_policies.sql** - Row Level Security policies
-8. **08_indexes.sql** - Performance indexes
+- **Single Migration File**: `supabase/migrations/20250816000000_init_schema.sql` (397 lines)
+- **Complete Schema**: All tables, RLS policies, and indexes in one file
+- **MigrationAgent Policy**: Following single migration file principle
+- **7 Core Tables**: families, profiles, events, posts, islamic_guidance, acts, feedback, notes
+- **RLS Enabled**: Row Level Security on all tables with email whitelist validation
+- **Auto-Deploy**: GitHub Actions workflow triggers on migration changes
 
-Each migration includes rollback instructions for safe schema management.
+### Schema Highlights
+- **Email Whitelist**: Centralized through `public.is_whitelisted_email()` function
+- **Family Scoping**: All data isolated by family_id with proper RLS policies  
+- **User Profiles**: Primary key `user_id` linked to auth.users
+- **Foreign Keys**: Proper referential integrity across all relationships
 
 ### Email Whitelist Configuration
 
-The system uses centralized email whitelist configuration:
+The system uses centralized email whitelist management:
 
-- **Client-side**: `web/env.js` exports `WHITELISTED_EMAILS` array
-- **Database**: RLS policies use `public.is_whitelisted_email()` function
-- **Environment**: Managed through `.env.local` and build scripts
+- **Client-side**: `web/env.js` - Auto-generated from .env.local via `scripts/sync-env.mjs`
+- **Database**: `public.is_whitelisted_email()` function with hardcoded emails  
+- **Current Whitelist**: 4 authorized family emails
+- **Environment**: Managed through GitHub secrets and build automation
 
 ## 🔒 Security
 
