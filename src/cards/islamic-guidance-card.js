@@ -179,11 +179,10 @@ export class IslamicGuidanceCard extends LitElement {
           .select('*')
           .eq('family_id', familyId)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (!error && data) {
-          guidanceData = data;
+        if (!error && data && data.length > 0) {
+          guidanceData = data[0];
         }
       }
 
@@ -193,11 +192,10 @@ export class IslamicGuidanceCard extends LitElement {
           .from('islamic_guidance')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (!error && data) {
-          guidanceData = data;
+        if (!error && data && data.length > 0) {
+          guidanceData = data[0];
         }
       }
 
